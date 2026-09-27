@@ -8,19 +8,19 @@ datasource db {
 
 // ─────────────── AUTH (better-auth) ───────────────
 model User {
-  id            String    @id
+  id            String   @id
   name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
+  email         String   @unique
+  emailVerified Boolean  @default(false)
   image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  sessions Session[]
-  accounts Account[]
-
+  sessions     Session[]
+  accounts     Account[]
   notes        Note[]
   noteVersions NoteVersion[]
+  noteShares   NoteShare[]
 
   @@map("user")
 }
@@ -71,28 +71,29 @@ model Verification {
 
 // ─────────────── NOTES MODULE ───────────────
 model Note {
-  id         String    @id @default(cuid())
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  title      String    @default("Untitled")
-  content    Json
-  plainText  String    @default("") @db.Text
-  category   String?   @default("General")
-  tags       String[]  @default([])
-  color      String?   @default("#ffffff")
+  title     String   @default("Untitled")
+  content   Json
+  plainText String   @default("") @db.Text
+  category  String?  @default("General")
+  tags      String[] @default([])
+  color     String?  @default("#ffffff")
 
-  isPinned   Boolean   @default(false)
-  isArchived Boolean   @default(false)
-  isPublic   Boolean   @default(false)
-  publicSlug String?   @unique
-  viewCount  Int       @default(0)
+  isPinned   Boolean @default(false)
+  isArchived Boolean @default(false)
+  isPublic   Boolean @default(false)
+  publicSlug String? @unique
+  viewCount  Int     @default(0)
 
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   versions NoteVersion[]
+  shares   NoteShare[]
 
   @@index([userId, isArchived, updatedAt])
   @@index([userId, isPinned])
@@ -113,4 +114,27 @@ model NoteVersion {
 
   @@index([noteId, version])
   @@map("note_versions")
+}
+
+model NoteShare {
+  id      String @id @default(cuid())
+  noteId  String
+  note    Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  email  String // who it's shared with
+  token  String @unique // url-safe random token
+  role   String @default("viewer") // viewer | editor (future)
+  status String @default("pending") // pending | accepted | revoked
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  acceptedAt DateTime?
+  expiresAt  DateTime?
+
+  @@unique([noteId, email])
+  @@index([email])
+  @@index([token])
+  @@map("note_shares")
 }

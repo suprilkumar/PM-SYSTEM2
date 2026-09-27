@@ -1,42 +1,31 @@
-// src/app/(app)/notes/[id]/share/page.js
+// src/app/(app)/notes/[id]/share/page.jsx
 "use client";
-import { useState } from "react";
-import { useParams } from "next/navigation";
+
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import ShareDialog from "@/modules/notes/components/ShareDialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 export default function SharePage() {
   const { id } = useParams();
-  const [link, setLink] = useState("");
-  const [enabled, setEnabled] = useState(false);
+  const router = useRouter();
+  const [note, setNote] = useState(null);
 
-  const toggle = async (on) => {
-    const res = await fetch("/api/notes/share", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ noteId: id, enable: on }),
-    });
-    const data = await res.json();
-    setEnabled(data.isPublic);
-    if (data.publicSlug) setLink(`${window.location.origin}/notes/public/${data.publicSlug}`);
-    else setLink("");
-  };
+  useEffect(() => {
+    fetch(`/api/notes/${id}`)
+      .then((r) => r.json())
+      .then(setNote)
+      .catch(() => {});
+  }, [id]);
+
+  if (!note) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 md:p-6">
-      <h1 className="text-xl font-bold">Share note</h1>
-      <div className="rounded-lg border p-4">
-        <label className="flex items-center justify-between">
-          <span>Public access</span>
-          <input type="checkbox" checked={enabled} onChange={(e) => toggle(e.target.checked)} />
-        </label>
-        {link && (
-          <div className="mt-3 flex gap-2">
-            <Input readOnly value={link} />
-            <Button onClick={() => navigator.clipboard.writeText(link)}>Copy</Button>
-          </div>
-        )}
-      </div>
+      <Button variant="ghost" size="sm" onClick={() => router.back()}>
+        ← Back
+      </Button>
+      <ShareDialog noteId={id} noteTitle={note.title} />
     </div>
   );
 }
