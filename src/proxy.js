@@ -20,7 +20,8 @@ export function proxy(req) {
   const isProtected =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/settings") ||
-    pathname.startsWith("/notes");
+    pathname.startsWith("/notes") ||
+    pathname.startsWith("/finance");
 
   if (isProtected && !sessionCookie) {
     const url = new URL("/login", req.url);
@@ -40,6 +41,7 @@ export const config = {
     "/dashboard/:path*",
     "/settings/:path*",
     "/notes/:path*",
+    "/finance/:path*",
     "/login",
     "/share/:path*",
   ],
