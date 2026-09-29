@@ -2,9 +2,9 @@
 "use client";
 
 import Link from "next/link";
-import { Pencil, Trash2, Filter } from "lucide-react";
+import { Pencil, Trash2, Filter, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import CategoryIcon from "./CategoryIcon";
-import { formatCurrency } from "../lib/format";
+import { formatCurrency, tone } from "../lib/format";
 import { cn } from "@/core/utils/cn";
 
 function groupByDate(txns) {
@@ -35,6 +35,18 @@ function dayLabel(iso) {
   });
 }
 
+function sumByType(items) {
+  return items.reduce(
+    (acc, t) => {
+      const amt = Number(t.amount);
+      if (t.type === "income") acc.income += amt;
+      else acc.expense += amt;
+      return acc;
+    },
+    { income: 0, expense: 0 }
+  );
+}
+
 export default function TransactionsTable({ transactions, onDelete }) {
   if (!transactions.length) {
     return (
@@ -52,25 +64,44 @@ export default function TransactionsTable({ transactions, onDelete }) {
 
   return (
     <>
-      {/* ── Mobile: stacked cards ── */}
-      <div className="space-y-4 md:hidden">
-        {groups.map(([date, items]) => (
-          <div key={date}>
-            <div className="mb-1.5 flex items-center justify-between px-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                {dayLabel(date)}
-              </span>
-              <span className="text-[11px] tabular-nums text-muted-foreground">
-                {items.length} txn
-              </span>
-            </div>
-            <div className="divide-y overflow-hidden rounded-xl border bg-card">
-              {items.map((t) => (
-                <MobileRow key={t.id} txn={t} onDelete={onDelete} />
-              ))}
-            </div>
-          </div>
-        ))}
+      {/* ── Mobile: grouped cards ── */}
+      <div className="space-y-5 md:hidden">
+        {groups.map(([date, items]) => {
+          const totals = sumByType(items);
+          return (
+            <section key={date}>
+              {/* Day header with running total */}
+              <div className="sticky top-0 z-10 -mx-1 mb-2 flex items-center justify-between bg-background/95 px-1 py-1.5 backdrop-blur">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-semibold">
+                    {dayLabel(date)}
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                    {items.length} txn
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-[11px] tabular-nums">
+                  {totals.income > 0 && (
+                    <span className={tone.income.text}>
+                      +{formatCurrency(totals.income, { compact: true }).replace("₹", "₹ ")}
+                    </span>
+                  )}
+                  {totals.expense > 0 && (
+                    <span className={tone.expense.text}>
+                      −{formatCurrency(totals.expense, { compact: true }).replace("₹", "₹ ")}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                {items.map((t) => (
+                  <MobileRow key={t.id} txn={t} onDelete={onDelete} />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
       {/* ── Desktop: table ── */}
@@ -97,8 +128,12 @@ export default function TransactionsTable({ transactions, onDelete }) {
   );
 }
 
+/* ─────────────────────────────────────────── */
+
 function DesktopRow({ txn, onDelete }) {
   const isIncome = txn.type === "income";
+  const t = tone[txn.type] ?? tone.neutral;
+
   return (
     <tr className="group transition hover:bg-accent/40">
       <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">
@@ -110,11 +145,8 @@ function DesktopRow({ txn, onDelete }) {
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <span
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md"
-            style={{
-              backgroundColor: (txn.category?.color ?? "#64748b") + "20",
-              color: txn.category?.color ?? "#64748b",
-            }}
+            className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md", t.bg)}
+            style={{ color: txn.category?.color ?? undefined }}
           >
             <CategoryIcon name={txn.category?.icon ?? "Circle"} size={13} />
           </span>
@@ -138,12 +170,7 @@ function DesktopRow({ txn, onDelete }) {
       <td className="px-4 py-3 text-xs capitalize text-muted-foreground">
         {txn.paymentMethod ?? "—"}
       </td>
-      <td
-        className={cn(
-          "px-4 py-3 text-right text-sm font-semibold tabular-nums",
-          isIncome ? "text-green-600" : "text-red-600"
-        )}
-      >
+      <td className={cn("px-4 py-3 text-right text-sm font-semibold tabular-nums", t.text)}>
         {isIncome ? "+" : "−"}
         {formatCurrency(Number(txn.amount)).replace("₹", "₹ ")}
       </td>
@@ -171,56 +198,65 @@ function DesktopRow({ txn, onDelete }) {
 
 function MobileRow({ txn, onDelete }) {
   const isIncome = txn.type === "income";
+  const t = tone[txn.type] ?? tone.neutral;
+
   return (
-    <div className="flex items-center gap-3 p-3">
-      <span
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-lg"
-        style={{
-          backgroundColor: (txn.category?.color ?? "#64748b") + "20",
-          color: txn.category?.color ?? "#64748b",
-        }}
+    <div className="flex items-stretch">
+      {/* Tap target: whole card links to edit */}
+      <Link
+        href={`/finance/transactions/${txn.id}/edit`}
+        className="flex min-w-0 flex-1 items-center gap-3 p-3 transition active:bg-accent/40"
       >
-        <CategoryIcon name={txn.category?.icon ?? "Circle"} size={16} />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">
-          {txn.category?.name ?? "Unknown"}
-        </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {txn.parentCategory?.name && `${txn.parentCategory.name} · `}
-          {txn.description || txn.paymentMethod}
-        </div>
-      </div>
-
-      <div className="text-right">
-        <div
-          className={cn(
-            "text-sm font-semibold tabular-nums",
-            isIncome ? "text-green-600" : "text-red-600"
-          )}
+        {/* Category icon with tone-colored background */}
+        <span
+          className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", t.bg)}
+          style={{ color: txn.category?.color ?? undefined }}
         >
-          {isIncome ? "+" : "−"}
-          {formatCurrency(Number(txn.amount)).replace("₹", "₹ ")}
-        </div>
-      </div>
+          <CategoryIcon name={txn.category?.icon ?? "Circle"} size={18} />
+        </span>
 
-      <div className="flex flex-col gap-1">
-        <Link
-          href={`/finance/transactions/${txn.id}/edit`}
-          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-accent"
-          aria-label="Edit"
-        >
-          <Pencil className="h-3.5 w-3.5" />
-        </Link>
-        <button
-          onClick={() => onDelete?.(txn.id)}
-          className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
-          aria-label="Delete"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      </div>
+        {/* Middle: category + description */}
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">
+            {txn.category?.name ?? "Unknown"}
+          </div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+            {txn.parentCategory && (
+              <>
+                <span className="truncate">{txn.parentCategory.name}</span>
+                <span className="text-muted-foreground/50">·</span>
+              </>
+            )}
+            <span className="truncate">
+              {txn.description || txn.paymentMethod || "—"}
+            </span>
+          </div>
+        </div>
+
+        {/* Amount with direction arrow */}
+        <div className="flex shrink-0 flex-col items-end gap-0.5">
+          <div className={cn("flex items-center gap-1 text-sm font-semibold tabular-nums", t.text)}>
+            {isIncome ? (
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            ) : (
+              <ArrowDownRight className="h-3.5 w-3.5" />
+            )}
+            {formatCurrency(Number(txn.amount)).replace("₹", "₹ ")}
+          </div>
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {txn.paymentMethod ?? "—"}
+          </span>
+        </div>
+      </Link>
+
+      {/* Delete as a separate tap target — stops propagation naturally */}
+      <button
+        onClick={() => onDelete?.(txn.id)}
+        className="grid w-11 shrink-0 place-items-center border-l text-muted-foreground transition active:bg-destructive/10 active:text-destructive"
+        aria-label="Delete transaction"
+      >
+        <Trash2 className="h-4 w-4" />
+      </button>
     </div>
   );
 }
