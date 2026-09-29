@@ -35,18 +35,31 @@ export default function TransactionForm({ initial, onSuccess }) {
   const [saving, setSaving] = useState(false);
   const [showQuickCategory, setShowQuickCategory] = useState(false);
 
-  const submit = async (e) => {
-    e.preventDefault();
+  const isEdit = !!initial;
 
-    if (!amount || Number(amount) <= 0) return toast.error("Enter a valid amount");
-    if (!categoryId) return toast.error("Pick a category");
+  const resetForNext = () => {
+    setAmount("");
+    setDescription("");
+    // keep type, category, date, paymentMethod — user likely enters a similar txn
+  };
+
+  const submit = async (mode) => {
+    // mode: "save" | "saveAndNew"
+    if (!amount || Number(amount) <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Pick a category");
+      return;
+    }
 
     setSaving(true);
     try {
-      const url = initial
+      const url = isEdit
         ? `/api/finance/transactions/${initial.id}`
         : "/api/finance/transactions";
-      const method = initial ? "PATCH" : "POST";
+      const method = isEdit ? "PATCH" : "POST";
 
       const res = await fetch(url, {
         method,
@@ -56,16 +69,25 @@ export default function TransactionForm({ initial, onSuccess }) {
           type,
           categoryId,
           date: new Date(date).toISOString(),
-          description: description || null,
+          // Only send description when non-empty
+          ...(description.trim() ? { description: description.trim() } : {}),
           paymentMethod,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
 
-      toast.success(initial ? "Transaction updated" : "Transaction added");
-      onSuccess?.(data);
-      router.refresh();
+      toast.success(isEdit ? "Transaction updated" : "Transaction added");
+
+      if (mode === "saveAndNew" && !isEdit) {
+        resetForNext();
+        router.refresh();
+        // stay on the page
+      } else {
+        onSuccess?.(data);
+        router.push("/finance");
+        router.refresh();
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -75,7 +97,13 @@ export default function TransactionForm({ initial, onSuccess }) {
 
   return (
     <>
-      <form onSubmit={submit} className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          submit("save");
+        }}
+        className="space-y-4"
+      >
         {/* Type toggle */}
         <div className="grid grid-cols-2 rounded-lg border p-1">
           {["expense", "income"].map((t) => (
@@ -115,7 +143,7 @@ export default function TransactionForm({ initial, onSuccess }) {
           />
         </div>
 
-        {/* Category — the fixed picker */}
+        {/* Category */}
         <div>
           <label className="text-xs font-medium">Category</label>
           <div className="mt-1">
@@ -156,9 +184,12 @@ export default function TransactionForm({ initial, onSuccess }) {
           </div>
         </div>
 
-        {/* Description */}
+        {/* Description — explicitly optional */}
         <div>
-          <label className="text-xs font-medium">Note (optional)</label>
+          <div className="flex items-baseline justify-between">
+            <label className="text-xs font-medium">Note</label>
+            <span className="text-[10px] text-muted-foreground">optional</span>
+          </div>
           <Input
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -167,14 +198,25 @@ export default function TransactionForm({ initial, onSuccess }) {
           />
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
+        {/* Actions */}
+        <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+          {!isEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving}
+              onClick={() => submit("saveAndNew")}
+              className="sm:mr-auto"
+            >
+              {saving ? "Saving…" : "Save & add another"}
+            </Button>
+          )}
           <Button type="submit" disabled={saving} size="lg">
-            {saving ? "Saving…" : initial ? "Update" : "Add"}
+            {saving ? "Saving…" : isEdit ? "Update" : "Save"}
           </Button>
         </div>
       </form>
 
-      {/* Quick create — new modal */}
       <QuickCategoryDialog
         open={showQuickCategory}
         onClose={() => setShowQuickCategory(false)}

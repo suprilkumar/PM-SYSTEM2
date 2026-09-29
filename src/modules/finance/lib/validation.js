@@ -27,9 +27,12 @@ export const transactionCreateSchema = z.object({
   type: z.enum(["income", "expense"]),
   categoryId: z.string().min(1),
   date: z.coerce.date(),
-  description: z.string().max(500).optional(),
+  description: z
+    .union([z.string(), z.null(), z.undefined()])
+    .transform((v) => (v == null ? undefined : v.trim() || undefined))
+    .optional(),
   paymentMethod: z
-    .enum(["cash", "upi", "card", "netbanking", "other"])
+    .enum(["cash", "upi", "card", "netbanking", "bank transfer", "neft/rtgs", "other"])
     .default("other"),
   isRecurring: z.boolean().default(false),
   recurrenceRule: z.any().optional(),

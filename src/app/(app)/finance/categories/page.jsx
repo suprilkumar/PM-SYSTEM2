@@ -9,6 +9,7 @@ import CategoryIcon from "@/modules/finance/components/CategoryIcon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function CategoriesPage() {
   const { categories, loading, reload } = useCategories();
@@ -94,6 +95,20 @@ export default function CategoriesPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
+        <PageHeader
+            title="Categories"
+            description="Domains and custom entries"
+            breadcrumbs={[
+                { label: "Finance", href: "/finance" },
+                { label: "Categories" },
+            ]}
+            actions={
+                <Button size="sm" variant="outline" onClick={() => setAddingUnder("top")}>
+                <Plus className="mr-1 h-4 w-4" />
+                Add domain
+                </Button>
+            }
+        />
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">Categories</h1>
         <Button size="sm" variant="outline" onClick={() => setAddingUnder("top")}>

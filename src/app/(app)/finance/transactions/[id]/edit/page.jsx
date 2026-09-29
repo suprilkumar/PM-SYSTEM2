@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import TransactionForm from "@/modules/finance/components/TransactionForm";
 import { Button } from "@/components/ui/button";
 import { Trash2, Copy } from "lucide-react";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function EditTransactionPage() {
   const { id } = useParams();
@@ -96,6 +97,26 @@ const handleDuplicate = async () => {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
+        <PageHeader
+  title="Edit transaction"
+  description={txn?.category?.name ?? ""}
+  breadcrumbs={[
+    { label: "Finance", href: "/finance" },
+    { label: "Transactions", href: "/finance/transactions" },
+    { label: "Edit" },
+  ]}
+  actions={
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={handleDelete}
+      className="text-destructive hover:bg-destructive/10"
+    >
+      <Trash2 className="mr-1 h-4 w-4" />
+      Delete
+    </Button>
+  }
+/>
             <Button variant="ghost" size="sm" onClick={() => router.back()}>
           ← Back
         </Button>

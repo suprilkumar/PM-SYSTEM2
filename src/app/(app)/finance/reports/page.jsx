@@ -7,6 +7,7 @@ import { CategoryPie, IncomeExpenseBar, SavingsTrend } from "@/modules/finance/c
 import CategoryIcon from "@/modules/finance/components/CategoryIcon";
 import { formatCurrency } from "@/modules/finance/lib/format";
 import { cn } from "@/core/utils/cn";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function ReportsPage() {
   const [range, setRange] = useState("month");
@@ -14,6 +15,15 @@ export default function ReportsPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-5 p-4 md:p-6">
+        <PageHeader
+            title="Reports"
+            description="Analytics across time periods"
+            breadcrumbs={[
+                { label: "Finance", href: "/finance" },
+                { label: "Reports" },
+            ]}
+            showBack={false}
+        />
       <h1 className="text-xl font-bold">Reports</h1>
 
       {/* Range switch */}

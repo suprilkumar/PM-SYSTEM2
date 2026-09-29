@@ -2,8 +2,8 @@
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
-import MobileNav from "@/components/layout/MobileNav";
 import { getCurrentUser } from "@/core/auth/session";
+import FloatingNav from "@/components/layout/FloatingNav";
 
 export default async function AppLayout({ children }) {
   const user = await getCurrentUser();
@@ -12,10 +12,11 @@ export default async function AppLayout({ children }) {
   return (
     <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Topbar />
-        <main className="flex-1 pb-20 md:pb-0">{children}</main>
-        <MobileNav />
+        {/* Add bottom padding so content clears the floating capsule */}
+        <main className="flex-1 pb-24 md:pb-0">{children}</main>
+        <FloatingNav />
       </div>
     </div>
   );

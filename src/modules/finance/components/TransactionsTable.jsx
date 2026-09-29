@@ -104,26 +104,28 @@ export default function TransactionsTable({ transactions, onDelete }) {
         })}
       </div>
 
-      {/* ── Desktop: table ── */}
-      <div className="hidden overflow-hidden rounded-xl border bg-card md:block">
-        <table className="w-full">
-          <thead className="border-b bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
+    {/* ── Desktop: table ── */}
+    <div className="hidden overflow-hidden rounded-xl border bg-card md:block">
+    <div className="w-full overflow-x-auto">
+        <table className="w-full min-w-[820px]">
+        <thead className="border-b bg-muted/30 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Category</th>
-              <th className="px-4 py-3 font-medium">Description</th>
-              <th className="px-4 py-3 font-medium">Payment</th>
-              <th className="px-4 py-3 text-right font-medium">Amount</th>
-              <th className="w-[100px] px-4 py-3 text-right font-medium">Actions</th>
+            <th className="w-[80px] px-3 py-2.5 font-medium lg:px-4 lg:py-3">Date</th>
+            <th className="px-3 py-2.5 font-medium lg:px-4 lg:py-3">Category</th>
+            <th className="px-3 py-2.5 font-medium lg:px-4 lg:py-3">Description</th>
+            <th className="w-[100px] px-3 py-2.5 font-medium lg:px-4 lg:py-3">Payment</th>
+            <th className="w-[130px] px-3 py-2.5 text-right font-medium lg:px-4 lg:py-3">Amount</th>
+            <th className="w-[90px] px-3 py-2.5 text-right font-medium lg:px-4 lg:py-3">Actions</th>
             </tr>
-          </thead>
-          <tbody className="divide-y">
+        </thead>
+        <tbody className="divide-y">
             {transactions.map((t) => (
-              <DesktopRow key={t.id} txn={t} onDelete={onDelete} />
+            <DesktopRow key={t.id} txn={t} onDelete={onDelete} />
             ))}
-          </tbody>
+        </tbody>
         </table>
-      </div>
+    </div>
+    </div>
     </>
   );
 }
@@ -136,13 +138,13 @@ function DesktopRow({ txn, onDelete }) {
 
   return (
     <tr className="group transition hover:bg-accent/40">
-      <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">
+      <td className="whitespace-nowrap px-3 py-2.5 text-xs tabular-nums text-muted-foreground lg:px-4 lg:py-3">
         {new Date(txn.date).toLocaleDateString("en-IN", {
           day: "2-digit",
           month: "short",
         })}
       </td>
-      <td className="px-4 py-3">
+      <td className="px-3 py-2.5 lg:px-4 lg:py-3">
         <div className="flex items-center gap-2">
           <span
             className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md", t.bg)}
@@ -162,19 +164,19 @@ function DesktopRow({ txn, onDelete }) {
           </div>
         </div>
       </td>
-      <td className="max-w-[280px] px-4 py-3">
+      <td className="max-w-[240px] px-3 py-2.5 lg:px-4 lg:py-3">
         <span className="line-clamp-1 text-sm text-muted-foreground">
           {txn.description || "—"}
         </span>
       </td>
-      <td className="px-4 py-3 text-xs capitalize text-muted-foreground">
+      <td className="whitespace-nowrap px-3 py-2.5 text-xs capitalize text-muted-foreground lg:px-4 lg:py-3">
         {txn.paymentMethod ?? "—"}
       </td>
-      <td className={cn("px-4 py-3 text-right text-sm font-semibold tabular-nums", t.text)}>
+      <td className={cn("whitespace-nowrap px-3 py-2.5 text-right text-sm font-semibold tabular-nums lg:px-4 lg:py-3", t.text)}>
         {isIncome ? "+" : "−"}
         {formatCurrency(Number(txn.amount)).replace("₹", "₹ ")}
       </td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-3 py-2.5 text-right lg:px-4 lg:py-3">
         <div className="flex justify-end gap-1 opacity-0 transition group-hover:opacity-100">
           <Link
             href={`/finance/transactions/${txn.id}/edit`}

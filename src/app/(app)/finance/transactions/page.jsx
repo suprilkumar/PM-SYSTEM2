@@ -8,6 +8,7 @@ import TransactionRow from "@/modules/finance/components/TransactionRow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
+import PageHeader from "@/components/layout/PageHeader";
 
 export default function TransactionsPage() {
   const [search, setSearch] = useState("");
@@ -16,6 +17,22 @@ export default function TransactionsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-4 md:p-6">
+        <PageHeader
+        title="Transactions"
+        description="All your income and expenses"
+        breadcrumbs={[
+          { label: "Finance", href: "/finance" },
+          { label: "Transactions" },
+        ]}
+        actions={
+          <Link href="/finance/transactions/new">
+            <Button size="sm">
+              <Plus className="mr-1 h-4 w-4" />
+              Add
+            </Button>
+          </Link>
+        }
+      />
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">Transactions</h1>
         <Link href="/finance/transactions/new">
