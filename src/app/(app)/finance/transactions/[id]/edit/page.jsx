@@ -7,7 +7,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import TransactionForm from "@/modules/finance/components/TransactionForm";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Copy } from "lucide-react";
 
 export default function EditTransactionPage() {
   const { id } = useParams();
@@ -51,6 +51,30 @@ export default function EditTransactionPage() {
     }
   };
 
+  
+const handleDuplicate = async () => {
+  if (!txn) return;
+  const res = await fetch("/api/finance/transactions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: Number(txn.amount),
+      type: txn.type,
+      categoryId: txn.categoryId,
+      date: new Date().toISOString(),
+      description: txn.description,
+      paymentMethod: txn.paymentMethod,
+    }),
+  });
+  if (res.ok) {
+    toast.success("Duplicated");
+    router.push("/finance/transactions");
+    router.refresh();
+  } else {
+    toast.error("Could not duplicate");
+  }
+};
+
   if (loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
   }
@@ -72,20 +96,28 @@ export default function EditTransactionPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" onClick={() => router.back()}>
+            <Button variant="ghost" size="sm" onClick={() => router.back()}>
           ← Back
         </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleDelete}
-          className="text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="mr-1 h-4 w-4" />
-          Delete
-        </Button>
-      </div>
+    <div className="flex items-center gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={handleDuplicate}
+  >
+    <Copy className="mr-1 h-4 w-4" />
+    Duplicate
+  </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={handleDelete}
+    className="text-destructive hover:bg-destructive/10"
+  >
+    <Trash2 className="mr-1 h-4 w-4" />
+    Delete
+  </Button>
+</div>
 
       <h1 className="text-xl font-bold">Edit transaction</h1>
 

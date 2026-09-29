@@ -1,8 +1,8 @@
-// src/modules/finance/hooks/useReports.js
+// src/modules/finance/hooks/useMonthlyOverview.js
 "use client";
 import { useEffect, useState, useCallback } from "react";
 
-export function useReports(range = "month", overrides = {}) {
+export function useMonthlyOverview(year) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -11,11 +11,9 @@ export function useReports(range = "month", overrides = {}) {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ range });
-      if (overrides.from) params.set("from", overrides.from);
-      if (overrides.to) params.set("to", overrides.to);
-
-      const res = await fetch(`/api/finance/reports?${params}`, { cache: "no-store" });
+      const res = await fetch(`/api/finance/monthly?year=${year}`, {
+        cache: "no-store",
+      });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setData(json);
@@ -24,7 +22,7 @@ export function useReports(range = "month", overrides = {}) {
     } finally {
       setLoading(false);
     }
-  }, [range, overrides.from, overrides.to]);
+  }, [year]);
 
   useEffect(() => {
     load();

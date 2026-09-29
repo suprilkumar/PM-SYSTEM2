@@ -6,15 +6,29 @@ import { transactionCreateSchema } from "@/modules/finance/lib/validation";
 
 export const GET = withAuth(async (req, _ctx, user) => {
   const { searchParams } = new URL(req.url);
+
+  // Support both explicit from/to and convenient month+year
+  const monthParam = searchParams.get("month");
+  const yearParam = searchParams.get("year");
+
+  let from, to;
+  if (monthParam && yearParam) {
+    const m = Number(monthParam); // 1–12
+    const y = Number(yearParam);
+    from = new Date(y, m - 1, 1);
+    to = new Date(y, m, 0, 23, 59, 59, 999);
+  } else {
+    const fromStr = searchParams.get("from");
+    const toStr = searchParams.get("to");
+    from = fromStr ? new Date(fromStr) : undefined;
+    to = toStr ? new Date(toStr) : undefined;
+  }
+
   const page = Number(searchParams.get("page") ?? 1);
-  const limit = Number(searchParams.get("limit") ?? 30);
+  const limit = Number(searchParams.get("limit") ?? 50);
   const type = searchParams.get("type") ?? undefined;
   const categoryId = searchParams.get("categoryId") ?? undefined;
   const search = searchParams.get("search") ?? undefined;
-  const fromStr = searchParams.get("from");
-  const toStr = searchParams.get("to");
-  const from = fromStr ? new Date(fromStr) : undefined;
-  const to = toStr ? new Date(toStr) : undefined;
 
   const [transactions, total] = await Promise.all([
     transactionQueries.list({

@@ -1,103 +1,173 @@
 // src/app/(app)/finance/page.jsx
 "use client";
-import Link from "next/link";
-import { Plus, BarChart3 } from "lucide-react";
-import { useFinanceDashboard } from "@/modules/finance/hooks/useFinanceDashboard";
-import SummaryCards from "@/modules/finance/components/SummaryCards";
-import TransactionRow from "@/modules/finance/components/TransactionRow";
-import { Button } from "@/components/ui/button";
 
-export default function FinanceHomePage() {
-  const { data, loading } = useFinanceDashboard();
+import { useState } from "react";
+import { Search, Table2, PieChart } from "lucide-react";
+import { useMonthlyOverview } from "@/modules/finance/hooks/useMonthlyOverview";
+import { useMonthlyTransactions } from "@/modules/finance/hooks/useMonthlyTransactions";
+import MonthTabs from "@/modules/finance/components/MonthTabs";
+import StatsStrip from "@/modules/finance/components/StatsStrip";
+import ActionBar from "@/modules/finance/components/ActionBar";
+import TransactionsTable from "@/modules/finance/components/TransactionsTable";
+import AnalyticsView from "@/modules/finance/components/AnalyticsView";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/core/utils/cn";
 
-  const monthLabel = new Date().toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
+const MONTHS_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+export default function FinanceDashboard() {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+  const [view, setView] = useState("table"); // "table" | "analytics"
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+
+  const { data: overview } = useMonthlyOverview(year);
+  const { transactions, loading, remove } = useMonthlyTransactions({
+    year,
+    month,
+    type: typeFilter || undefined,
+    search: search || undefined,
   });
 
+  // Compute the current month's summary from the loaded transactions
+  const summary = transactions.reduce(
+    (acc, t) => {
+      const amt = Number(t.amount);
+      if (t.type === "income") acc.totalIncome += amt;
+      else acc.totalExpense += amt;
+      return acc;
+    },
+    { totalIncome: 0, totalExpense: 0 }
+  );
+  summary.netSavings = summary.totalIncome - summary.totalExpense;
+  summary.savingsRate =
+    summary.totalIncome > 0
+      ? (summary.netSavings / summary.totalIncome) * 100
+      : 0;
+
+  const monthLabel = `${MONTHS_LONG[month - 1]} ${year}`;
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5 p-4 md:p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Finance</h1>
-          <p className="text-xs text-muted-foreground">{monthLabel}</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/finance/reports">
-            <Button variant="outline" size="sm">
-              <BarChart3 className="mr-1 h-4 w-4" />
-              Reports
-            </Button>
-          </Link>
-          <Link href="/finance/transactions/new">
-            <Button size="sm">
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
-          </Link>
+    <div className="min-h-screen w-full bg-background">
+      {/* ── Sticky top: stats + actions ── */}
+      <div className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto w-full max-w-[1600px] space-y-3 px-4 py-4 md:px-6 md:py-5">
+          {/* Title row */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
+                Finance
+              </h1>
+              <p className="text-xs text-muted-foreground md:text-sm">
+                {monthLabel} · {transactions.length} transaction
+                {transactions.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <ActionBar />
+          </div>
+
+          {/* Stats strip */}
+          <StatsStrip
+            summary={summary}
+            monthLabel={monthLabel}
+            totalCount={transactions.length}
+          />
         </div>
       </div>
 
-      {loading || !data ? (
-        <div className="rounded-xl border p-6 text-center text-sm text-muted-foreground">
-          Loading…
-        </div>
-      ) : (
-        <>
-          <SummaryCards summary={data.summary} />
+      {/* ── Body ── */}
+      <div className="mx-auto w-full max-w-[1600px] space-y-4 px-4 py-4 md:px-6 md:py-6">
+        {/* Month + year */}
+        <MonthTabs
+          year={year}
+          onYearChange={(y) => {
+            setYear(y);
+            const today = new Date();
+            if (y === today.getFullYear()) setMonth(today.getMonth() + 1);
+            else setMonth(1);
+          }}
+          selectedMonth={month}
+          onMonthChange={setMonth}
+          monthlyData={overview?.months}
+        />
 
-          <section>
-            <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-muted-foreground">
-                Recent transactions
-              </h2>
-              <Link
-                href="/finance/transactions"
-                className="text-xs text-primary hover:underline"
+        {/* Toolbar: view toggle + search + type filter */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex rounded-lg border p-0.5">
+            {[
+              { v: "table", label: "Transactions", icon: Table2 },
+              { v: "analytics", label: "Analytics", icon: PieChart },
+            ].map(({ v, label, icon: Icon }) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition",
+                  view === v
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent"
+                )}
               >
-                View all
-              </Link>
-            </div>
+                <Icon className="h-3.5 w-3.5" />
+                {label}
+              </button>
+            ))}
+          </div>
 
-            {data.recentTransactions.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
-                No transactions yet.{" "}
-                <Link href="/finance/transactions/new" className="text-primary hover:underline">
-                  Add one
-                </Link>
-                .
+          {view === "table" && (
+            <>
+              <div className="relative min-w-0 flex-1 sm:max-w-xs">
+                <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search transactions…"
+                  className="h-9 pl-8 text-sm"
+                />
               </div>
-            ) : (
-              <div className="divide-y rounded-xl border bg-card">
-                {data.recentTransactions.map((t) => (
-                  <TransactionRow key={t.id} txn={t} />
+
+              <div className="flex rounded-lg border p-0.5">
+                {[
+                  { v: "", label: "All" },
+                  { v: "income", label: "Income" },
+                  { v: "expense", label: "Expense" },
+                ].map((f) => (
+                  <button
+                    key={f.v}
+                    onClick={() => setTypeFilter(f.v)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition",
+                      typeFilter === f.v
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:bg-accent"
+                    )}
+                  >
+                    {f.label}
+                  </button>
                 ))}
               </div>
-            )}
-          </section>
+            </>
+          )}
+        </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link
-              href="/finance/categories"
-              className="rounded-xl border bg-card p-4 transition hover:shadow-md"
-            >
-              <div className="text-sm font-semibold">Categories</div>
-              <div className="text-xs text-muted-foreground">
-                Manage domains and custom entries
-              </div>
-            </Link>
-            <Link
-              href="/finance/reports"
-              className="rounded-xl border bg-card p-4 transition hover:shadow-md"
-            >
-              <div className="text-sm font-semibold">Analytics</div>
-              <div className="text-xs text-muted-foreground">
-                Monthly, quarterly, yearly views
-              </div>
-            </Link>
-          </div>
-        </>
-      )}
+        {/* Content */}
+        {view === "table" ? (
+          loading ? (
+            <div className="rounded-xl border bg-card py-16 text-center text-sm text-muted-foreground">
+              Loading…
+            </div>
+          ) : (
+            <TransactionsTable transactions={transactions} onDelete={remove} />
+          )
+        ) : (
+          <AnalyticsView year={year} month={month} />
+        )}
+      </div>
     </div>
   );
 }

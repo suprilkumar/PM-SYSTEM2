@@ -7,7 +7,12 @@ import { getRange } from "@/modules/finance/lib/dates";
 export const GET = withAuth(async (req, _ctx, user) => {
   const { searchParams } = new URL(req.url);
   const range = searchParams.get("range") ?? "month";
-  const { from, to } = getRange(range);
+  const fromStr = searchParams.get("from");
+  const toStr = searchParams.get("to");
+
+  const { from: defaultFrom, to: defaultTo } = getRange(range);
+  const from = fromStr ? new Date(fromStr) : defaultFrom;
+  const to = toStr ? new Date(toStr) : defaultTo;
 
   const [summaryRaw, byCategoryRaw, byDomainRaw, trendRaw, categories] = await Promise.all([
     transactionQueries.aggregateSummary({ userId: user.id, from, to }),
