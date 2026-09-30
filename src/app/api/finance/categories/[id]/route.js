@@ -1,4 +1,5 @@
 // src/app/api/finance/categories/[id]/route.js
+import { revalidateTag } from "next/cache";
 import { withAuth } from "@/core/api/handler";
 import { ok, notFound, badRequest } from "@/core/api/response";
 import { categoryQueries } from "@/modules/finance/lib/queries";
@@ -19,10 +20,12 @@ export const PATCH = withAuth(async (req, ctx, user) => {
     data: parsed.data,
   });
   if (result.count === 0) return notFound();
+
+  revalidateTag(`finance-${user.id}`);
   return ok({ success: true });
 });
 
-export const DELETE = withAuth(async (req, ctx, user) => {
+export const DELETE = withAuth(async (_req, ctx, user) => {
   const { id } = await ctx.params;
 
   const existing = await categoryQueries.byId({ userId: user.id, id });
@@ -42,5 +45,7 @@ export const DELETE = withAuth(async (req, ctx, user) => {
 
   const result = await categoryQueries.delete({ userId: user.id, id });
   if (result.count === 0) return notFound();
+
+  revalidateTag(`finance-${user.id}`);
   return ok({ success: true });
 });

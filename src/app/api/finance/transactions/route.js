@@ -1,4 +1,5 @@
 // src/app/api/finance/transactions/route.js
+import { revalidateTag } from "next/cache";
 import { withAuth } from "@/core/api/handler";
 import { ok, created, badRequest } from "@/core/api/response";
 import { transactionQueries, categoryQueries } from "@/modules/finance/lib/queries";
@@ -41,7 +42,14 @@ export const GET = withAuth(async (req, _ctx, user) => {
       page,
       limit,
     }),
-    transactionQueries.count({ userId: user.id, type, categoryId, from, to, search }),
+    transactionQueries.count({
+      userId: user.id,
+      type,
+      categoryId,
+      from,
+      to,
+      search,
+    }),
   ]);
 
   return ok({
@@ -79,6 +87,9 @@ export const POST = withAuth(async (req, _ctx, user) => {
       metadata: parsed.data.metadata ?? null,
     },
   });
+
+  // Bust every cached finance aggregate for this user
+  revalidateTag(`finance-${user.id}`);
 
   return created(txn);
 });

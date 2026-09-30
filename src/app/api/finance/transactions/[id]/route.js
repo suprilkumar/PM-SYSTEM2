@@ -1,4 +1,5 @@
 // src/app/api/finance/transactions/[id]/route.js
+import { revalidateTag } from "next/cache";
 import { withAuth } from "@/core/api/handler";
 import { ok, notFound, badRequest } from "@/core/api/response";
 import { transactionQueries, categoryQueries } from "@/modules/finance/lib/queries";
@@ -29,6 +30,8 @@ export const PATCH = withAuth(async (req, ctx, user) => {
 
   const result = await transactionQueries.update({ userId: user.id, id, data });
   if (result.count === 0) return notFound();
+
+  revalidateTag(`finance-${user.id}`);
   return ok({ success: true });
 });
 
@@ -36,5 +39,7 @@ export const DELETE = withAuth(async (_req, ctx, user) => {
   const { id } = await ctx.params;
   const result = await transactionQueries.softDelete({ userId: user.id, id });
   if (result.count === 0) return notFound();
+
+  revalidateTag(`finance-${user.id}`);
   return ok({ success: true });
 });

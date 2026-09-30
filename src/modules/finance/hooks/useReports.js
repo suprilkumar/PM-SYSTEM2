@@ -1,34 +1,22 @@
 // src/modules/finance/hooks/useReports.js
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
 
 export function useReports(range = "month", overrides = {}) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const params = new URLSearchParams({ range });
+  if (overrides.from) params.set("from", overrides.from);
+  if (overrides.to) params.set("to", overrides.to);
+  const key = `/api/finance/reports?${params}`;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({ range });
-      if (overrides.from) params.set("from", overrides.from);
-      if (overrides.to) params.set("to", overrides.to);
+  const { data, error, isLoading, mutate } = useSWR(key, {
+    keepPreviousData: true,
+    dedupingInterval: 30_000,
+  });
 
-      const res = await fetch(`/api/finance/reports?${params}`, { cache: "no-store" });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-      setData(json);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [range, overrides.from, overrides.to]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { data, loading, error, reload: load };
+  return {
+    data,
+    loading: isLoading && !data,
+    error: error?.message,
+    reload: mutate,
+  };
 }

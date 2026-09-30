@@ -1,47 +1,48 @@
 // src/modules/finance/hooks/useMonthlyTransactions.js
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
+
+function buildKey({ year, month, type, search }) {
+  if (!year || !month) return null;
+  const params = new URLSearchParams({
+    year: String(year),
+    month: String(month),
+  });
+  if (type) params.set("type", type);
+  if (search) params.set("search", search);
+  return `/api/finance/transactions?${params}`;
+}
 
 export function useMonthlyTransactions({ year, month, type, search }) {
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, error, isLoading, mutate } = useSWR(
+    buildKey({ year, month, type, search }),
+    { keepPreviousData: true }
+  );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        year: String(year),
-        month: String(month),
-      });
-      if (type) params.set("type", type);
-      if (search) params.set("search", search);
-
-      const res = await fetch(`/api/finance/transactions?${params}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-      setTransactions(json.transactions ?? []);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [year, month, type, search]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const transactions = data?.transactions ?? [];
 
   const remove = async (id) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    mutate(
+      (current) =>
+        current
+          ? {
+              ...current,
+              transactions: current.transactions.filter((t) => t.id !== id),
+            }
+          : current,
+      { revalidate: false }
+    );
     const res = await fetch(`/api/finance/transactions/${id}`, {
       method: "DELETE",
     });
-    if (!res.ok) load();
+    if (!res.ok) mutate();
   };
 
-  return { transactions, loading, error, reload: load, remove };
+  return {
+    transactions,
+    loading: isLoading && !data,
+    error: error?.message,
+    reload: mutate,
+    remove,
+  };
 }

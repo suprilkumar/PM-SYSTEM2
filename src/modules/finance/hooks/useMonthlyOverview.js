@@ -1,32 +1,17 @@
 // src/modules/finance/hooks/useMonthlyOverview.js
 "use client";
-import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
 
 export function useMonthlyOverview(year) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { data, error, isLoading, mutate } = useSWR(
+    year ? `/api/finance/monthly?year=${year}` : null,
+    { keepPreviousData: true }
+  );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/finance/monthly?year=${year}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-      setData(json);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [year]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  return { data, loading, error, reload: load };
+  return {
+    data,
+    loading: isLoading && !data,
+    error: error?.message,
+    reload: mutate,
+  };
 }

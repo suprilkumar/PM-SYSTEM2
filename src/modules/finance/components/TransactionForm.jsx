@@ -11,6 +11,7 @@ import { PAYMENT_METHODS } from "../constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
+import { invalidateFinanceCache } from "../lib/cache";
 
 function toDateInput(d) {
   const dt = new Date(d);
@@ -77,6 +78,7 @@ export default function TransactionForm({ initial, onSuccess }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed");
 
+      await invalidateFinanceCache();
       toast.success(isEdit ? "Transaction updated" : "Transaction added");
 
       if (mode === "saveAndNew" && !isEdit) {
