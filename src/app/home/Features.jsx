@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Smartphone,
 } from "lucide-react";
+import { cn } from "@/core/utils/cn";
 
 const FEATURES = [
   {
@@ -19,7 +20,7 @@ const FEATURES = [
     icon: Wallet,
     title: "Finance Tracker",
     desc: "Track income, expenses, custom categories. Monthly, quarterly, yearly reports with charts.",
-    available: false,
+    available: true,
   },
   {
     icon: Dumbbell,
@@ -49,10 +50,13 @@ const FEATURES = [
 
 export default function Features() {
   return (
-    <section id="features" className="border-t bg-muted/20 py-16 sm:py-24">
+    <section id="features" className="relative border-t border-border/60 py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/5 px-3 py-1 text-xs text-primary">
+            Features
+          </div>
+          <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
             Everything you need, in one place
           </h2>
           <p className="mt-3 text-muted-foreground">
@@ -60,24 +64,46 @@ export default function Features() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => {
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {FEATURES.map((f, i) => {
             const Icon = f.icon;
             return (
               <div
                 key={f.title}
-                className="group relative rounded-xl border bg-background p-6 transition hover:shadow-md"
+                className={cn(
+                  "group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-6",
+                  "transition-all duration-300",
+                  "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-glow)]"
+                )}
+                style={{ animationDelay: `${i * 40}ms` }}
               >
+                {/* Hover gradient */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -inset-px rounded-2xl bg-gradient-to-br from-primary/0 via-primary/0 to-primary/0 opacity-0 transition-opacity duration-300 group-hover:from-primary/5 group-hover:via-transparent group-hover:to-magenta-500/5 group-hover:opacity-100"
+                />
+
                 {!f.available && (
-                  <span className="absolute right-4 top-4 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="absolute right-4 top-4 rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
                     Soon
                   </span>
                 )}
-                <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+
+                <div
+                  className={cn(
+                    "relative mb-4 inline-flex h-11 w-11 items-center justify-center rounded-xl",
+                    "bg-gradient-to-br from-primary/15 to-magenta-500/10",
+                    "text-primary transition-transform duration-300",
+                    "group-hover:scale-110 group-hover:rotate-3"
+                  )}
+                >
                   <Icon className="h-5 w-5" />
                 </div>
-                <h3 className="font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.desc}</p>
+
+                <h3 className="relative font-semibold">{f.title}</h3>
+                <p className="relative mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {f.desc}
+                </p>
               </div>
             );
           })}
