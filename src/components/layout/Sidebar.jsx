@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import * as Icons from "lucide-react";
 import { APPS, SETTINGS_ITEM } from "@/core/config/apps";
 import { cn } from "@/core/utils/cn";
+import { emit } from "@/core/utils/events";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -102,10 +103,31 @@ function SidebarItem({ item, pathname }) {
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
             {item.children.map((child) => {
               const CIcon = Icons[child.icon] ?? Icons.Circle;
+
+              // Action-type child — fires an event instead of navigating
+              if (child.action) {
+                return (
+                  <button
+                    key={child.name}
+                    onClick={() => {
+                      emit(child.action, {});
+                      // Ensure we're on a notes route so the listener exists
+                      if (!pathname.startsWith("/notes")) {
+                        window.location.href = "/notes";
+                      }
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-left text-xs text-muted-foreground transition-all hover:bg-accent hover:text-foreground"
+                  >
+                    <CIcon className="h-3.5 w-3.5 shrink-0" />
+                    {child.name}
+                  </button>
+                );
+              }
+
+              // Route-type child — normal Link
               const childActive =
                 pathname === child.href ||
-                (child.href !== item.href &&
-                  pathname.startsWith(child.href + "/"));
+                (child.href !== item.href && pathname.startsWith(child.href + "/"));
 
               return (
                 <Link

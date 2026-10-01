@@ -25,9 +25,15 @@ export default function NoteCard({ note, onDelete, onTogglePin }) {
   return (
     <>
       <div
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData("text/note-id", note.id);
+          e.dataTransfer.effectAllowed = "move";
+        }}
         className={cn(
           "group relative flex flex-col overflow-hidden rounded-2xl border border-border/70 bg-card p-4 transition-all",
-          "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-glow)]"
+          "hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-[var(--shadow-glow)]",
+          "cursor-grab active:cursor-grabbing"
         )}
       >
         {note.isPublic && (

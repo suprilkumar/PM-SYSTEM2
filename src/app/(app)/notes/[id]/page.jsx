@@ -17,7 +17,7 @@ import {
   resolveTitle,
 } from "@/modules/notes/lib/editor";
 import { Button } from "@/components/ui/button";
-import { Save, Share2, Trash2 } from "lucide-react";
+import { Save, SaveAll, Share2, Trash2 } from "lucide-react";
 import { cn } from "@/core/utils/cn";
 
 export default function NotePage() {
@@ -34,6 +34,8 @@ export default function NotePage() {
   const [deleting, setDeleting] = useState(false);
 
   const { mutate: mutateTree } = useSWR("/api/notes/tree");
+  const { data: tree } = useSWR("/api/notes/tree");
+  const folder = tree?.folders?.find((f) => f.id === note?.folderId);
 
   // Load the note
   useEffect(() => {
@@ -139,6 +141,25 @@ export default function NotePage() {
 
   return (
     <div className="mx-auto w-full max-w-[1100px] px-6 py-6 md:px-10 md:py-8">
+      {folder && (
+      <nav className="mb-3 flex items-center gap-1 text-xs text-muted-foreground">
+        <Link href="/notes" className="hover:text-foreground">
+          Notes
+        </Link>
+        <span>›</span>
+        <Link
+          href={`/notes?folder=${folder.id}`}
+          className="hover:text-foreground"
+        >
+          {folder.name}
+        </Link>
+        <span>›</span>
+        <span className="truncate font-medium text-foreground">
+          {effectiveTitle}
+        </span>
+      </nav>
+    )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-2">
         <Button
@@ -149,42 +170,65 @@ export default function NotePage() {
           ← Back
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConfirmDelete(true)}
-            className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-            <span className="hidden sm:inline">Delete</span>
-          </Button>
+<div className="flex flex-wrap items-center gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={() => setConfirmDelete(true)}
+    className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+  >
+    <Trash2 className="h-4 w-4" />
+    <span className="hidden sm:inline">Delete</span>
+  </Button>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              if (empty) {
-                toast.error("Can't save an empty note — write something first");
-                return;
-              }
-              setShowSave(true);
-            }}
-            disabled={empty}
-            className={cn("gap-1.5", empty && "opacity-50")}
-            title={empty ? "Write something to save" : "Save note"}
-          >
-            <Save className="h-4 w-4" />
-            Save
-          </Button>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={async () => {
+      if (empty) {
+        toast.error("Can't save an empty note — write something first");
+        return;
+      }
+      const finalTitle = title.trim() || resolveTitle("", content?.html) || "Untitled";
+      await doSave(finalTitle);
+      router.push("/notes");
+    }}
+    disabled={empty}
+    className={cn("gap-1.5", empty && "opacity-50")}
+    title={empty ? "Write something to save" : "Save and return to notes"}
+  >
+    <SaveAll className="h-4 w-4" />
+    <span className="hidden sm:inline">Save & exit</span>
+  </Button>
 
-          <Link href={`/notes/${id}/share`}>
-            <Button variant="outline" size="sm" className="gap-1.5">
-              <Share2 className="h-4 w-4" />
-              Share
-            </Button>
-          </Link>
-        </div>
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={async () => {
+      if (empty) {
+        toast.error("Can't save an empty note — write something first");
+        return;
+      }
+      if (title.trim()) {
+        await doSave(title.trim());
+        return;
+      }
+      setShowSave(true);
+    }}
+    disabled={empty}
+    className={cn("gap-1.5", empty && "opacity-50")}
+  >
+    <Save className="h-4 w-4" />
+    Save
+  </Button>
+
+  <Link href={`/notes/${id}/share`}>
+    <Button variant="outline" size="sm" className="gap-1.5">
+      <Share2 className="h-4 w-4" />
+      Share
+    </Button>
+  </Link>
+</div>
       </div>
 
       {/* Title */}

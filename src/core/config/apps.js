@@ -13,10 +13,12 @@ export const APPS = [
     href: "/notes",
     icon: "StickyNote",
     order: 1,
+    // src/core/config/apps.js — notes children
     children: [
       { name: "My notes", href: "/notes", icon: "FileText" },
       { name: "New note", href: "/notes/new", icon: "Plus" },
-      { name: "New folder", href: "/notes?new=folder", icon: "FolderPlus" },
+      { name: "New folder", action: "notes:new-folder", icon: "FolderPlus" },
+      { name: "All folders", href: "/notes/folders", icon: "Folders" },
       { name: "Shared by me", href: "/notes/shared", icon: "Share2" },
       { name: "Public links", href: "/notes/public-links", icon: "Globe" },
     ],

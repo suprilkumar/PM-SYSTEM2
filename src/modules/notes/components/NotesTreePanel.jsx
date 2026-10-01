@@ -1,30 +1,37 @@
 // src/modules/notes/components/NotesTreePanel.jsx
 "use client";
 
-import { useMemo, useState, useRef } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { toast } from "sonner";
 import {
-  ChevronRight, ChevronDown, Folder, FolderOpen, FileText,
-  Pin, GripVertical, MoreHorizontal, Globe, Share2,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  Pin,
+  GripVertical,
+  Globe,
+  Plus,
 } from "lucide-react";
-import * as Icons from "lucide-react";
 import { cn } from "@/core/utils/cn";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function NotesTreePanel({ currentNoteId }) {
   const { data, isLoading, mutate } = useSWR("/api/notes/tree");
-  const [collapsed, setCollapsed] = useState({}); // { folderId: true }
+  const [collapsed, setCollapsed] = useState({});
   const [dragId, setDragId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
 
   const notes = data?.notes ?? [];
   const folders = data?.folders ?? [];
 
-  // Build the tree: folders (with children) + root notes
+  // ── Build tree ──
   const tree = useMemo(() => {
-    const folderById = new Map(folders.map((f) => [f.id, { ...f, children: [], notes: [] }]));
+    const folderById = new Map(
+      folders.map((f) => [f.id, { ...f, children: [], notes: [] }])
+    );
     const roots = [];
 
     for (const f of folderById.values()) {
@@ -44,8 +51,8 @@ export default function NotesTreePanel({ currentNoteId }) {
       }
     }
 
-    // Sort by sortOrder inside each group
-    const sortGroup = (arr) => arr.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const sortGroup = (arr) =>
+      arr.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
     const sortNotes = (arr) =>
       arr.sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -64,7 +71,7 @@ export default function NotesTreePanel({ currentNoteId }) {
 
   const pinnedNotes = notes.filter((n) => n.isPinned);
 
-  // ── Drag & drop ──
+  // ── Reorder (within the same container) ──
   const onDragStart = (id) => (e) => {
     setDragId(id);
     e.dataTransfer.effectAllowed = "move";
@@ -83,7 +90,6 @@ export default function NotesTreePanel({ currentNoteId }) {
   const onDrop = async (targetId, container) => {
     if (!dragId || dragId === targetId) return onDragEnd();
 
-    // Build new order for the visible list (target's container)
     const ids = container.map((n) => n.id);
     const fromIdx = ids.indexOf(dragId);
     const toIdx = ids.indexOf(targetId);
@@ -95,7 +101,6 @@ export default function NotesTreePanel({ currentNoteId }) {
 
     const updates = next.map((id, i) => ({ id, sortOrder: i }));
 
-    // Optimistic update
     mutate(
       (current) => {
         if (!current) return current;
@@ -117,11 +122,49 @@ export default function NotesTreePanel({ currentNoteId }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ updates }),
     });
-    if (!res.ok) mutate(); // rollback
+    if (!res.ok) mutate();
+  };
+
+  // ── Move into / out of a folder ──
+  const onDropOnFolder = async (folderId, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragId) return;
+
+    const draggedId = dragId;
+
+    // Optimistic update
+    mutate(
+      (current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          notes: current.notes.map((n) =>
+            n.id === draggedId ? { ...n, folderId } : n
+          ),
+        };
+      },
+      { revalidate: false }
+    );
+
+    onDragEnd();
+
+    const res = await fetch(`/api/notes/${draggedId}/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId }),
+    });
+
+    if (!res.ok) {
+      mutate();
+      toast.error("Couldn't move note");
+    } else {
+      toast.success(folderId ? "Moved to folder" : "Moved out of folder");
+    }
   };
 
   return (
-     <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex h-14 items-center justify-between border-b border-border/60 px-4">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -151,7 +194,6 @@ export default function NotesTreePanel({ currentNoteId }) {
                 <NoteList
                   notes={pinnedNotes}
                   currentNoteId={currentNoteId}
-                  container="pinned"
                   dragId={dragId}
                   dropTarget={dropTarget}
                   onDragStart={onDragStart}
@@ -162,22 +204,33 @@ export default function NotesTreePanel({ currentNoteId }) {
               </Section>
             )}
 
-            {/* Root notes */}
-            {tree.rootNotes.length > 0 && (
-              <Section label="Open notes" count={tree.rootNotes.length}>
-                <NoteList
-                  notes={tree.rootNotes}
-                  currentNoteId={currentNoteId}
-                  container="root"
-                  dragId={dragId}
-                  dropTarget={dropTarget}
-                  onDragStart={onDragStart}
-                  onDragOver={onDragOver}
-                  onDragEnd={onDragEnd}
-                  onDrop={(id) => onDrop(id, tree.rootNotes)}
-                />
-              </Section>
-            )}
+            {/* Root notes — the whole section is a drop target for "move out" */}
+            <Section label="Open notes" count={tree.rootNotes.length}>
+              <div
+                onDragOver={(e) => {
+                  if (dragId) e.preventDefault();
+                }}
+                onDrop={(e) => onDropOnFolder(null, e)}
+                className="min-h-[12px]"
+              >
+                {tree.rootNotes.length > 0 ? (
+                  <NoteList
+                    notes={tree.rootNotes}
+                    currentNoteId={currentNoteId}
+                    dragId={dragId}
+                    dropTarget={dropTarget}
+                    onDragStart={onDragStart}
+                    onDragOver={onDragOver}
+                    onDragEnd={onDragEnd}
+                    onDrop={(id) => onDrop(id, tree.rootNotes)}
+                  />
+                ) : (
+                  <div className="rounded-md border border-dashed px-2 py-3 text-center text-[10px] text-muted-foreground">
+                    {dragId ? "Drop here to move out" : "No notes"}
+                  </div>
+                )}
+              </div>
+            </Section>
 
             {/* Folders */}
             {tree.roots.map((folder) => (
@@ -193,18 +246,21 @@ export default function NotesTreePanel({ currentNoteId }) {
                 onDragOver={onDragOver}
                 onDragEnd={onDragEnd}
                 onDrop={onDrop}
+                onDropOnFolder={onDropOnFolder}
               />
             ))}
 
-            {tree.roots.length === 0 && tree.rootNotes.length === 0 && pinnedNotes.length === 0 && (
-              <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-                No notes yet
-              </p>
-            )}
+            {tree.roots.length === 0 &&
+              tree.rootNotes.length === 0 &&
+              pinnedNotes.length === 0 && (
+                <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+                  No notes yet
+                </p>
+              )}
           </div>
         )}
       </div>
-      </div>
+    </div>
   );
 }
 
@@ -215,7 +271,9 @@ function Section({ label, count, children }) {
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {label}
         </span>
-        <span className="text-[10px] tabular-nums text-muted-foreground">{count}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {count}
+        </span>
       </div>
       {children}
     </div>
@@ -223,35 +281,77 @@ function Section({ label, count, children }) {
 }
 
 function FolderNode({
-  folder, currentNoteId, collapsed, setCollapsed,
-  dragId, dropTarget, onDragStart, onDragOver, onDragEnd, onDrop,
+  folder,
+  currentNoteId,
+  collapsed,
+  setCollapsed,
+  dragId,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+  onDropOnFolder,
 }) {
   const isOpen = !collapsed[folder.id];
   const totalCount = folder.notes.length + folder.children.length;
   const Icon = isOpen ? FolderOpen : Folder;
+  const [folderHover, setFolderHover] = useState(false);
 
   return (
     <div>
-      <button
-        onClick={() =>
-          setCollapsed((c) => ({ ...c, [folder.id]: !c[folder.id] }))
-        }
-        className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-accent"
-      >
-        {isOpen ? (
-          <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+      {/* Folder header — click toggles, drop moves note in */}
+      <div
+        onDragOver={(e) => {
+          if (dragId) {
+            e.preventDefault();
+            setFolderHover(true);
+          }
+        }}
+        onDragLeave={() => setFolderHover(false)}
+        onDrop={(e) => {
+          setFolderHover(false);
+          onDropOnFolder(folder.id, e);
+        }}
+        className={cn(
+          "flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition",
+          folderHover
+            ? "bg-primary/15 text-primary ring-2 ring-primary/40"
+            : "hover:bg-accent"
         )}
-        <Icon
-          className="h-3.5 w-3.5 shrink-0"
-          style={{ color: folder.color ?? undefined }}
-        />
-        <span className="min-w-0 flex-1 truncate text-left">{folder.name}</span>
-        <span className="text-[10px] tabular-nums text-muted-foreground">
-          {totalCount}
-        </span>
-      </button>
+      >
+        <button
+          onClick={() =>
+            setCollapsed((c) => ({ ...c, [folder.id]: !c[folder.id] }))
+          }
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          aria-label={isOpen ? "Collapse folder" : "Expand folder"}
+        >
+          {isOpen ? (
+            <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+          )}
+          <Icon
+            className="h-3.5 w-3.5 shrink-0"
+            style={{ color: folder.color ?? undefined }}
+          />
+          <span className="min-w-0 flex-1 truncate">{folder.name}</span>
+          <span className="text-[10px] tabular-nums text-muted-foreground">
+            {totalCount}
+          </span>
+        </button>
+
+        <Link
+          href={`/notes/new?folder=${folder.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="grid h-5 w-5 shrink-0 place-items-center rounded text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          aria-label={`New note in ${folder.name}`}
+          title="New note in folder"
+        >
+          <Plus className="h-3 w-3" />
+        </Link>
+      </div>
 
       {isOpen && (
         <div className="ml-3 border-l border-border/50 pl-2">
@@ -269,6 +369,7 @@ function FolderNode({
               onDragOver={onDragOver}
               onDragEnd={onDragEnd}
               onDrop={onDrop}
+              onDropOnFolder={onDropOnFolder}
             />
           ))}
 
@@ -277,7 +378,6 @@ function FolderNode({
             <NoteList
               notes={folder.notes}
               currentNoteId={currentNoteId}
-              container={`folder:${folder.id}`}
               dragId={dragId}
               dropTarget={dropTarget}
               onDragStart={onDragStart}
@@ -293,8 +393,14 @@ function FolderNode({
 }
 
 function NoteList({
-  notes, currentNoteId, container,
-  dragId, dropTarget, onDragStart, onDragOver, onDragEnd, onDrop,
+  notes,
+  currentNoteId,
+  dragId,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
 }) {
   return (
     <ul className="space-y-0.5">
@@ -316,7 +422,16 @@ function NoteList({
   );
 }
 
-function NoteRow({ note, active, dragging, isDropTarget, onDragStart, onDragOver, onDragEnd, onDrop }) {
+function NoteRow({
+  note,
+  active,
+  dragging,
+  isDropTarget,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+}) {
   return (
     <div
       draggable

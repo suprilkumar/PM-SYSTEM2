@@ -5,8 +5,14 @@ import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import {
-  Plus, Search, StickyNote, Share2, Globe,
-  FolderPlus, ChevronRight, MoreHorizontal, Trash2, Pencil,
+  Plus,
+  Search,
+  StickyNote,
+  Share2,
+  Globe,
+  FolderPlus,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import * as Icons from "lucide-react";
 import { toast } from "sonner";
@@ -20,7 +26,11 @@ import { cn } from "@/core/utils/cn";
 
 export default function NotesPage() {
   const [search, setSearch] = useState("");
-  const { data: tree, isLoading: treeLoading, mutate: mutateTree } = useSWR("/api/notes/tree");
+  const {
+    data: tree,
+    isLoading: treeLoading,
+    mutate: mutateTree,
+  } = useSWR("/api/notes/tree");
   const { data: stats } = useSWR("/api/notes/stats");
   const { data: searchData, isLoading: searchLoading } = useSWR(
     search ? `/api/notes?search=${encodeURIComponent(search)}` : null
@@ -34,15 +44,17 @@ export default function NotesPage() {
   const folders = tree?.folders ?? [];
 
   const rootNotes = notes.filter((n) => !n.folderId);
-  const notesInFolder = (folderId) => notes.filter((n) => n.folderId === folderId);
+  const notesInFolder = (folderId) =>
+    notes.filter((n) => n.folderId === folderId);
 
-  // When searching, show a flat list
   const searching = search.trim().length > 0;
   const searchResults = searchData?.notes ?? [];
 
   const handleDeleteFolder = async () => {
     if (!confirmFolderDelete) return;
-    const res = await fetch(`/api/folders/${confirmFolderDelete.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/folders/${confirmFolderDelete.id}`, {
+      method: "DELETE",
+    });
     if (res.ok) {
       toast.success(`Folder "${confirmFolderDelete.name}" deleted`);
       setConfirmFolderDelete(null);
@@ -52,20 +64,47 @@ export default function NotesPage() {
     }
   };
 
+  // Move a note out of any folder when dropped on the root section
+  const handleRootDrop = async (e) => {
+    e.preventDefault();
+    const noteId = e.dataTransfer.getData("text/note-id");
+    if (!noteId) return;
+
+    const res = await fetch(`/api/notes/${noteId}/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId: null }),
+    });
+    if (res.ok) {
+      toast.success("Moved to Open notes");
+      mutateTree();
+    } else {
+      toast.error("Couldn't move note");
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1440px] px-4 py-6 md:px-8 md:py-8">
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Notes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your private workspace</p>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            Notes
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your private workspace
+          </p>
         </div>
+
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
             size="lg"
             className="gap-2"
-            onClick={() => { setEditingFolder(null); setShowFolderDialog(true); }}
+            onClick={() => {
+              setEditingFolder(null);
+              setShowFolderDialog(true);
+            }}
           >
             <FolderPlus className="h-4 w-4" />
             New folder
@@ -81,9 +120,27 @@ export default function NotesPage() {
 
       {/* Stat cards */}
       <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatCard icon={StickyNote} label="My notes" value={stats?.mine ?? "—"} loading={!stats} accent="from-primary to-magenta-500" />
-        <StatCard icon={Share2} label="Shared with others" value={stats?.shared ?? "—"} loading={!stats} accent="from-blue-500 to-cyan-500" />
-        <StatCard icon={Globe} label="Public links" value={stats?.publicLinks ?? "—"} loading={!stats} accent="from-amber-500 to-orange-500" />
+        <StatCard
+          icon={StickyNote}
+          label="My notes"
+          value={stats?.mine ?? "—"}
+          loading={!stats}
+          accent="from-primary to-magenta-500"
+        />
+        <StatCard
+          icon={Share2}
+          label="Shared with others"
+          value={stats?.shared ?? "—"}
+          loading={!stats}
+          accent="from-blue-500 to-cyan-500"
+        />
+        <StatCard
+          icon={Globe}
+          label="Public links"
+          value={stats?.publicLinks ?? "—"}
+          loading={!stats}
+          accent="from-amber-500 to-orange-500"
+        />
       </div>
 
       {/* Search */}
@@ -103,14 +160,17 @@ export default function NotesPage() {
           <SearchResults
             results={searchResults}
             loading={searchLoading}
-            onDeleted={() => { mutateTree(); }}
+            onDeleted={mutateTree}
           />
         ) : treeLoading ? (
           <GridSkeleton />
         ) : (
           <div className="space-y-10">
-            {/* Root notes */}
-            <section>
+            {/* ── Root notes section (also acts as a drop zone to move out of folders) ── */}
+            <section
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleRootDrop}
+            >
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   Open notes
@@ -135,7 +195,9 @@ export default function NotesPage() {
                       key={n.id}
                       note={n}
                       onDelete={async () => {
-                        await fetch(`/api/notes/${n.id}`, { method: "DELETE" });
+                        await fetch(`/api/notes/${n.id}`, {
+                          method: "DELETE",
+                        });
                         mutateTree();
                       }}
                       onTogglePin={async () => {
@@ -152,10 +214,13 @@ export default function NotesPage() {
               )}
             </section>
 
-            {/* Page break */}
+            {/* ── Divider ── */}
             {folders.length > 0 && (
               <div className="relative">
-                <div className="absolute inset-0 flex items-center" aria-hidden>
+                <div
+                  className="absolute inset-0 flex items-center"
+                  aria-hidden
+                >
                   <div className="w-full border-t border-border/60" />
                 </div>
                 <div className="relative flex justify-center">
@@ -166,7 +231,7 @@ export default function NotesPage() {
               </div>
             )}
 
-            {/* Folders */}
+            {/* ── Folders ── */}
             {folders.length > 0 && (
               <section>
                 <div className="grid gap-5 md:grid-cols-2">
@@ -196,7 +261,10 @@ export default function NotesPage() {
       {/* Dialogs */}
       <FolderDialog
         open={showFolderDialog}
-        onClose={() => { setShowFolderDialog(false); setEditingFolder(null); }}
+        onClose={() => {
+          setShowFolderDialog(false);
+          setEditingFolder(null);
+        }}
         initial={editingFolder}
         folders={folders}
         onSaved={mutateTree}
@@ -207,19 +275,61 @@ export default function NotesPage() {
         onClose={() => setConfirmFolderDelete(null)}
         onConfirm={handleDeleteFolder}
         title={`Delete folder "${confirmFolderDelete?.name}"?`}
-        description="Notes inside will be moved to root notes. The folder itself will be removed."
+        description={`Notes inside this folder (${confirmFolderDelete ? notesInFolder(confirmFolderDelete.id).length : 0}) will be moved to Open notes. The folder itself will be removed.`}
         confirmLabel="Delete folder"
       />
     </div>
   );
 }
 
-function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) {
+/* ─────────────────────────────────────────────── */
+
+function FolderCard({
+  folder,
+  notes,
+  allFolders,
+  onEdit,
+  onDelete,
+  onChanged,
+}) {
   const Icon = Icons[folder.icon] ?? Icons.Folder;
   const subFolders = allFolders.filter((f) => f.parentId === folder.id);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const noteId = e.dataTransfer.getData("text/note-id");
+    if (!noteId) return;
+
+    const res = await fetch(`/api/notes/${noteId}/move`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ folderId: folder.id }),
+    });
+    if (res.ok) {
+      toast.success(`Moved to ${folder.name}`);
+      onChanged?.();
+    } else {
+      toast.error("Couldn't move note");
+    }
+  };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card transition-all hover:border-primary/40 hover:shadow-[var(--shadow-glow)]">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={handleDrop}
+      className={cn(
+        "group relative overflow-hidden rounded-2xl border bg-card transition-all",
+        dragOver
+          ? "border-primary bg-primary/5 ring-2 ring-primary/40"
+          : "border-border/70 hover:border-primary/40 hover:shadow-[var(--shadow-glow)]"
+      )}
+    >
       {/* Header */}
       <div className="flex items-center gap-3 border-b border-border/60 p-4">
         <span
@@ -231,19 +341,30 @@ function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) 
         >
           <Icon className="h-5 w-5" />
         </span>
+
         <div className="min-w-0 flex-1">
           <div className="truncate font-semibold">{folder.name}</div>
           <div className="text-xs text-muted-foreground">
             {notes.length} note{notes.length === 1 ? "" : "s"}
-            {subFolders.length > 0 && ` · ${subFolders.length} subfolder${subFolders.length === 1 ? "" : "s"}`}
+            {subFolders.length > 0 &&
+              ` · ${subFolders.length} subfolder${subFolders.length === 1 ? "" : "s"}`}
           </div>
         </div>
 
         <div className="flex gap-1 opacity-0 transition group-hover:opacity-100">
+          <Link
+            href={`/notes/new?folder=${folder.id}`}
+            className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            aria-label={`New note in ${folder.name}`}
+            title="New note in folder"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Link>
           <button
             onClick={onEdit}
             className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-accent"
             aria-label="Edit folder"
+            title="Edit folder"
           >
             <Pencil className="h-3.5 w-3.5" />
           </button>
@@ -251,6 +372,7 @@ function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) 
             onClick={onDelete}
             className="grid h-7 w-7 place-items-center rounded-md text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
             aria-label="Delete folder"
+            title="Delete folder"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -261,7 +383,7 @@ function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) 
       <div className="p-3">
         {notes.length === 0 ? (
           <p className="px-2 py-4 text-center text-xs text-muted-foreground">
-            Empty folder
+            Empty folder — drag a note here or click + to create one
           </p>
         ) : (
           <ul className="space-y-0.5">
@@ -269,12 +391,13 @@ function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) 
               <li key={n.id}>
                 <Link
                   href={`/notes/${n.id}`}
-                  className={cn(
-                    "flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition",
-                    "hover:bg-accent"
-                  )}
+                  className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm transition hover:bg-accent"
                 >
-                  {n.isPinned && <span className="text-primary">📌</span>}
+                  {n.isPinned && (
+                    <span className="text-primary" aria-hidden>
+                      📌
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1 truncate">{n.title}</span>
                   <span className="text-[10px] text-muted-foreground">
                     {new Date(n.updatedAt).toLocaleDateString("en-IN", {
@@ -299,6 +422,8 @@ function FolderCard({ folder, notes, allFolders, onEdit, onDelete, onChanged }) 
   );
 }
 
+/* ─────────────────────────────────────────────── */
+
 function SearchResults({ results, loading, onDeleted }) {
   if (loading) return <GridSkeleton />;
   if (results.length === 0) {
@@ -308,6 +433,7 @@ function SearchResults({ results, loading, onDeleted }) {
       </div>
     );
   }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {results.map((n) => (
@@ -332,6 +458,8 @@ function SearchResults({ results, loading, onDeleted }) {
   );
 }
 
+/* ─────────────────────────────────────────────── */
+
 function GridSkeleton() {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -347,12 +475,24 @@ function GridSkeleton() {
   );
 }
 
+/* ─────────────────────────────────────────────── */
+
 function StatCard({ icon: Icon, label, value, loading, accent }) {
   return (
     <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card p-5 transition-all hover:-translate-y-0.5 hover:shadow-[var(--shadow-glow)]">
-      <div className={cn("absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-gradient-to-br opacity-20 blur-2xl transition-opacity group-hover:opacity-40", accent)} />
+      <div
+        className={cn(
+          "absolute right-0 top-0 h-20 w-20 translate-x-8 -translate-y-8 rounded-full bg-gradient-to-br opacity-20 blur-2xl transition-opacity group-hover:opacity-40",
+          accent
+        )}
+      />
       <div className="relative flex items-center gap-3">
-        <span className={cn("grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br text-white shadow-sm", accent)}>
+        <span
+          className={cn(
+            "grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br text-white shadow-sm",
+            accent
+          )}
+        >
           <Icon className="h-5 w-5" />
         </span>
         <div className="min-w-0">

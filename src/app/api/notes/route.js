@@ -34,6 +34,13 @@ export const POST = withAuth(async (req, _ctx, user) => {
   }
   if (!parsed.success) return badRequest("Invalid note", parsed.error.flatten());
 
-  const note = await notesQueries.create({ userId: user.id, data: parsed.data });
+  // src/app/api/notes/route.js — POST
+  const note = await notesQueries.create({
+    userId: user.id,
+    data: {
+      ...parsed.data,
+      folderId: parsed.data.folderId ?? null,
+    },
+  });
   return created(note);
 });

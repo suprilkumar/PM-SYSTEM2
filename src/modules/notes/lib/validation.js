@@ -14,6 +14,7 @@ const notEmpty = (val) => {
   return stripped.length > 0 || plain.trim().length > 0;
 };
 
+// src/modules/notes/lib/validation.js
 export const noteCreateSchema = z.object({
   title: z.string().min(1).max(200).default("Untitled"),
   content: contentSchema
