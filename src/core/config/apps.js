@@ -5,7 +5,6 @@ export const APPS = [
     name: "Home",
     href: "/dashboard",
     icon: "Home",
-    mobileNav: true,
     order: 0,
   },
   {
@@ -13,22 +12,30 @@ export const APPS = [
     name: "Notes",
     href: "/notes",
     icon: "StickyNote",
-    mobileNav: true,
     order: 1,
-    // module: "notes"  ← future flag for lazy loading
+    children: [
+      { name: "My notes", href: "/notes", icon: "FileText" },
+      { name: "New note", href: "/notes/new", icon: "Plus" },
+      { name: "New folder", href: "/notes?new=folder", icon: "FolderPlus" },
+      { name: "Shared by me", href: "/notes/shared", icon: "Share2" },
+      { name: "Public links", href: "/notes/public-links", icon: "Globe" },
+    ],
   },
   {
     id: "finance",
     name: "Finance",
     href: "/finance",
     icon: "Wallet",
-    mobileNav: true,
     order: 2,
+    children: [
+      { name: "Dashboard", href: "/finance", icon: "LayoutDashboard" },
+      { name: "Add transaction", href: "/finance/transactions/new", icon: "Plus" },
+      { name: "Transactions", href: "/finance/transactions", icon: "List" },
+      { name: "Categories", href: "/finance/categories", icon: "FolderTree" },
+      { name: "Reports", href: "/finance/reports", icon: "BarChart3" },
+    ],
   },
-  // Future apps — just append here, no other code changes:
-  // { id: "finance", name: "Finance", href: "/finance", icon: "Wallet", mobileNav: true, order: 2 },
-  // { id: "fitness", name: "Fitness", href: "/fitness", icon: "Dumbbell", mobileNav: true, order: 3 },
-  // { id: "reminders", name: "Reminders", href: "/reminders", icon: "Bell", mobileNav: true, order: 4 },
+  // Future apps go here
 ];
 
 export const SETTINGS_ITEM = {
@@ -36,11 +43,16 @@ export const SETTINGS_ITEM = {
   name: "Settings",
   href: "/settings",
   icon: "Settings",
+  children: [
+    { name: "Profile", href: "/settings/profile", icon: "User" },
+    { name: "Notifications", href: "/settings/notifications", icon: "Bell" },
+    { name: "Appearance", href: "/settings/appearance", icon: "Palette" },
+    { name: "Your data", href: "/settings/data", icon: "Database" },
+  ],
 };
 
 export const PUBLIC_LINKS = {
   features: { name: "Features", href: "/#features" },
   pricing: { name: "Pricing", href: "/#pricing" },
   about: { name: "About", href: "/#about" },
-
 };

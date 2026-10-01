@@ -25,6 +25,8 @@ model User {
   categories   Category[]
   transactions Transaction[]
 
+  folders Folder[]
+
   @@map("user")
 }
 
@@ -73,6 +75,32 @@ model Verification {
 }
 
 // ─────────────── NOTES MODULE ───────────────
+
+model Folder {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name     String
+  color    String?  @default("#a855f7")
+  icon     String?  @default("Folder")
+  parentId String?
+  parent   Folder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderTree")
+
+  sortOrder  Int     @default(0)
+  isArchived Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notes Note[]
+
+  @@unique([userId, parentId, name])
+  @@index([userId, parentId])
+  @@map("note_folders")
+}
+
 model Note {
   id     String @id @default(cuid())
   userId String
@@ -95,9 +123,14 @@ model Note {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
+  folderId  String?
+  folder    Folder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  sortOrder Int     @default(0)
+
   versions NoteVersion[]
   shares   NoteShare[]
 
+  @@index([userId, folderId, sortOrder])
   @@index([userId, isArchived, updatedAt])
   @@index([userId, isPinned])
   @@index([publicSlug])
@@ -169,6 +202,7 @@ model Category {
 
   @@unique([userId, name, parentId])
   @@index([userId, type])
+  @@index([userId, type, isArchived])
   @@index([userId, parentId])
   @@map("finance_categories")
 }
@@ -199,9 +233,10 @@ model Transaction {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@index([userId, date])
-  @@index([userId, type, date])
-  @@index([userId, categoryId, date])
-  @@index([userId, parentCategoryId, date])
+  // prisma/schema.prisma — Transaction model
+  @@index([userId, date(sort: Desc)])
+  @@index([userId, type, date(sort: Desc)])
+  @@index([userId, parentCategoryId, date(sort: Desc)])
+  @@index([userId, categoryId, date(sort: Desc)])
   @@map("finance_transactions")
 }

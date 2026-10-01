@@ -47,6 +47,34 @@ export function normalizeContent(content) {
   return emptyDoc();
 }
 
+// src/modules/notes/lib/editor.js — add:
+export function extractTitleFromHtml(html) {
+  if (!html) return "";
+  // Prefer the first heading
+  const headingMatch = html.match(/<h[1-3][^>]*>(.*?)<\/h[1-3]>/i);
+  if (headingMatch) return stripTags(headingMatch[1]).trim();
+
+  // Otherwise use the first paragraph
+  const pMatch = html.match(/<p[^>]*>(.*?)<\/p>/i);
+  if (pMatch) return stripTags(pMatch[1]).trim().slice(0, 120);
+
+  // Fallback: first line of text
+  const text = stripTags(html).split("\n")[0] ?? "";
+  return text.trim().slice(0, 120);
+}
+
+function stripTags(s) {
+  return String(s)
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .trim();
+}
+
 function escapeHtml(s) {
   return String(s)
     .replace(/&/g, "&amp;")
@@ -54,4 +82,24 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+/** True if the editor content is effectively empty (no visible text). */
+export function isEditorEmpty(html) {
+  if (!html) return true;
+  // Strip tags, whitespace, and known empty-only markers
+  const text = String(html)
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/&nbsp;/gi, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, "");
+  return text.length === 0;
+}
+
+/** Compute the effective title: explicit title → first line of content → "". */
+export function resolveTitle(title, html) {
+  const trimmed = (title ?? "").trim();
+  if (trimmed) return trimmed;
+  const fromContent = extractTitleFromHtml(html);
+  return (fromContent ?? "").trim();
 }

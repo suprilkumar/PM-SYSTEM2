@@ -39,24 +39,66 @@ export default function NoteEditor({ initialHtml = "", onChange }) {
     emitChange();
   };
 
-  const onKeyDown = (e) => {
-    const mod = e.metaKey || e.ctrlKey;
-    if (!mod) return;
-    const key = e.key.toLowerCase();
-    const map = {
-      b: { cmd: "bold" },
-      i: { cmd: "italic" },
-      u: { cmd: "underline" },
-      1: { cmd: "formatBlock", arg: "H1" },
-      2: { cmd: "formatBlock", arg: "H2" },
-      3: { cmd: "formatBlock", arg: "H3" },
-      0: { cmd: "formatBlock", arg: "P" },
-    };
-    if (map[key]) {
-      e.preventDefault();
-      runCommand(map[key]);
+const onKeyDown = (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+
+  // ── Detect if caret is inside a blockquote/pre and Enter pressed twice ──
+  if (e.key === "Enter" && !e.shiftKey && !mod) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      let node = sel.getRangeAt(0).startContainer;
+      if (node.nodeType === 3) node = node.parentNode;
+
+      // Find the nearest block-level ancestor
+      let block = node;
+      while (block && block !== ref.current) {
+        const tag = block.tagName?.toLowerCase();
+        if (tag === "blockquote" || tag === "pre") break;
+        block = block.parentNode;
+      }
+
+      // If we're inside one, check whether the current block is empty
+      if (block && block !== ref.current) {
+        const text = (block.textContent ?? "").trim();
+        if (!text || text === "\n") {
+          e.preventDefault();
+          // Exit: replace block with a paragraph
+          const p = document.createElement("p");
+          p.innerHTML = "<br>";
+          block.parentNode.replaceChild(p, block);
+          const range = document.createRange();
+          range.setStart(p, 0);
+          range.collapse(true);
+          const sel2 = window.getSelection();
+          sel2.removeAllRanges();
+          sel2.addRange(range);
+          emitChange();
+          return;
+        }
+      }
     }
+  }
+
+  // ── Modifier shortcuts ──
+  if (!mod) return;
+  const key = e.key.toLowerCase();
+  const map = {
+    b: { cmd: "bold" },
+    i: { cmd: "italic" },
+    u: { cmd: "underline" },
+    1: { cmd: "formatBlock", arg: "H1" },
+    2: { cmd: "formatBlock", arg: "H2" },
+    3: { cmd: "formatBlock", arg: "H3" },
+    0: { cmd: "formatBlock", arg: "P" },
+    // Shift+Cmd+7 → quote, Shift+Cmd+8 → code (convenience)
+    "&": { cmd: "formatBlock", arg: "BLOCKQUOTE" },
+    "*": { cmd: "formatBlock", arg: "PRE" },
   };
+  if (map[key]) {
+    e.preventDefault();
+    runCommand(map[key]);
+  }
+};
 
   const onPaste = (e) => {
     e.preventDefault();
@@ -92,7 +134,7 @@ export default function NoteEditor({ initialHtml = "", onChange }) {
         onPaste={onPaste}
         data-placeholder="Start writing…"
         className={cn(
-          "min-h-[400px] w-full rounded-lg border bg-background p-4 text-sm leading-relaxed outline-none focus:ring-2 focus:ring-primary/30",
+          "min-h-[calc(100vh-320px)] w-full rounded-2xl border border-border/60 bg-background p-8 text-base leading-relaxed outline-none",
           "[&_h1]:my-3 [&_h1]:text-2xl [&_h1]:font-bold",
           "[&_h2]:my-2 [&_h2]:text-xl [&_h2]:font-semibold",
           "[&_h3]:my-2 [&_h3]:text-lg [&_h3]:font-semibold",

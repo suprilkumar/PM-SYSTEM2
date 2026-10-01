@@ -1,7 +1,7 @@
 // src/modules/notes/hooks/useAutosave.js
 "use client";
-
 import { useEffect, useRef } from "react";
+import { isEditorEmpty } from "../lib/editor";
 
 export function useAutosave(noteId, payload, { delay = 800, enabled = true } = {}) {
   const timer = useRef();
@@ -10,7 +10,9 @@ export function useAutosave(noteId, payload, { delay = 800, enabled = true } = {
   useEffect(() => {
     if (!enabled || !noteId || !payload) return;
 
-    // Skip the first run (initial load)
+    // Never autosave an entirely empty note
+    if (isEditorEmpty(payload.content?.html)) return;
+
     if (first.current) {
       first.current = false;
       return;
@@ -19,14 +21,13 @@ export function useAutosave(noteId, payload, { delay = 800, enabled = true } = {
     clearTimeout(timer.current);
     timer.current = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/notes/${noteId}`, {
+        await fetch(`/api/notes/${noteId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (!res.ok) console.warn("[autosave] failed:", res.status);
       } catch (err) {
-        console.warn("[autosave] error:", err);
+        console.warn("[autosave]", err);
       }
     }, delay);
 

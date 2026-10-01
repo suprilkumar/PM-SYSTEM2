@@ -52,3 +52,55 @@ export const notesQueries = {
       data: { viewCount: { increment: 1 } },
     }),
 };
+
+// src/modules/notes/lib/queries.js — append
+
+export const folderQueries = {
+  list: ({ userId }) =>
+    prisma.folder.findMany({
+      where: { userId, isArchived: false },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    }),
+
+  byId: ({ userId, id }) =>
+    prisma.folder.findFirst({ where: { id, userId } }),
+
+  create: ({ userId, data }) =>
+    prisma.folder.create({ data: { ...data, userId } }),
+
+  update: ({ userId, id, data }) =>
+    prisma.folder.updateMany({ where: { id, userId }, data }),
+
+  delete: ({ userId, id }) =>
+    prisma.folder.deleteMany({ where: { id, userId } }),
+};
+
+// Extend notesQueries with:
+notesQueries.listTree = ({ userId }) =>
+  prisma.note.findMany({
+    where: { userId, deletedAt: null, isArchived: false },
+    orderBy: [{ isPinned: "desc" }, { sortOrder: "asc" }, { updatedAt: "desc" }],
+    select: {
+      id: true, title: true, plainText: true,
+      isPinned: true, folderId: true, sortOrder: true,
+      updatedAt: true, isPublic: true,
+    },
+  });
+
+notesQueries.moveToFolder = ({ userId, id, folderId }) =>
+  prisma.note.updateMany({
+    where: { id, userId },
+    data: { folderId: folderId ?? null },
+  });
+
+notesQueries.reorder = async ({ userId, updates }) => {
+  // updates: [{ id, sortOrder }]
+  await prisma.$transaction(
+    updates.map((u) =>
+      prisma.note.updateMany({
+        where: { id: u.id, userId },
+        data: { sortOrder: u.sortOrder },
+      })
+    )
+  );
+};

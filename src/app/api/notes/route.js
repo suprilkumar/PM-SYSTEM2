@@ -22,6 +22,16 @@ export const GET = withAuth(async (req, _ctx, user) => {
 export const POST = withAuth(async (req, _ctx, user) => {
   const body = await req.json();
   const parsed = noteCreateSchema.safeParse(body);
+  if (!parsed.success) {
+    // Detect the specific "empty" error and return a friendly message
+    const isEmpty = parsed.error.issues.some(
+      (i) => i.message === "Note content cannot be empty"
+    );
+    return badRequest(
+      isEmpty ? "Note content cannot be empty" : "Invalid note",
+      parsed.error.flatten()
+    );
+  }
   if (!parsed.success) return badRequest("Invalid note", parsed.error.flatten());
 
   const note = await notesQueries.create({ userId: user.id, data: parsed.data });
