@@ -12,6 +12,10 @@ import TransactionsTable from "@/modules/finance/components/TransactionsTable";
 import AnalyticsView from "@/modules/finance/components/AnalyticsView";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/core/utils/cn";
+import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { formatCurrency } from "@/modules/finance/lib/format";
+import { MONTHS_SHORT } from "@/modules/finance/lib/dates";
+import { SkeletonStatGrid, SkeletonTable } from "@/components/ui/skeleton";
 
 const MONTHS_LONG = [
   "January", "February", "March", "April", "May", "June",
@@ -35,6 +39,11 @@ export default function FinanceDashboard() {
     search: search || undefined,
   });
 
+  const trend = overview?.months?.map((m) => ({
+    label: MONTHS_SHORT[m.month - 1],
+    savings: m.net,
+    }));
+
   const summary = transactions.reduce(
     (acc, t) => {
       const amt = Number(t.amount);
@@ -51,6 +60,18 @@ export default function FinanceDashboard() {
       : 0;
 
   const monthLabel = `${MONTHS_LONG[month - 1]} ${year}`;
+
+  // Shared Recharts tooltip styling — matches the popover theme
+const TOOLTIP_STYLE = {
+  background: "hsl(var(--popover))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 12,
+  fontSize: 12,
+  padding: "8px 12px",
+  boxShadow: "0 8px 32px -8px rgba(0,0,0,0.2)",
+};
+
+  
 
   return (
     <div className="min-h-screen w-full bg-background">
@@ -76,8 +97,39 @@ export default function FinanceDashboard() {
             monthLabel={monthLabel}
             totalCount={transactions.length}
           />
+          
         </div>
       </div>
+      {trend && trend.some((t) => t.savings !== 0) && (
+  <div className="rounded-2xl border border-border/70 bg-card p-4">
+    <div className="mb-3 flex items-center justify-between">
+      <h3 className="text-sm font-semibold">Yearly savings trend</h3>
+      <span className="text-xs text-muted-foreground">{year}</span>
+    </div>
+    <div className="h-[140px] w-full">
+      <ResponsiveContainer>
+        <AreaChart data={trend}>
+          <defs>
+            <linearGradient id="dash-trend" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <Tooltip formatter={(v) => formatCurrency(v)} contentStyle={TOOLTIP_STYLE} />
+          <Area
+            type="monotone"
+            dataKey="savings"
+            stroke="var(--color-primary)"
+            strokeWidth={2}
+            fill="url(#dash-trend)"
+          />
+          <XAxis dataKey="label" fontSize={10} tickLine={false} axisLine={false} />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  </div>
+)}
+      
 
       {/* ── Body ── */}
       <div className="mx-auto w-full max-w-[1600px] space-y-4 px-4 py-4 md:px-6 md:py-6">
@@ -189,9 +241,11 @@ export default function FinanceDashboard() {
         {/* Content */}
         {view === "table" ? (
           loading ? (
-            <div className="rounded-xl border bg-card py-16 text-center text-sm text-muted-foreground">
-              Loading…
-            </div>
+         <>
+         <SkeletonStatGrid />
+        {/* or */}
+        <SkeletonTable rows={5} />
+         </>
           ) : (
             <TransactionsTable transactions={transactions} onDelete={remove} />
           )

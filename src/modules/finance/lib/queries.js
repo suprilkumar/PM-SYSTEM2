@@ -24,7 +24,11 @@ export const categoryQueries = {
     const [children, txns] = await Promise.all([
       prisma.category.count({ where: { userId, parentId: id } }),
       prisma.transaction.count({
-        where: { userId, OR: [{ categoryId: id }, { parentCategoryId: id }], deletedAt: null },
+        where: {
+          userId,
+          OR: [{ categoryId: id }, { parentCategoryId: id }],
+          deletedAt: null,
+        },
       }),
     ]);
     return { children, transactions: txns, ok: children === 0 && txns === 0 };
@@ -43,7 +47,9 @@ export const transactionQueries = {
         userId,
         deletedAt: null,
         ...(type && { type }),
-        ...(categoryId && { OR: [{ categoryId }, { parentCategoryId: categoryId }] }),
+        ...(categoryId && {
+          OR: [{ categoryId }, { parentCategoryId: categoryId }],
+        }),
         ...(from || to
           ? { date: { ...(from && { gte: from }), ...(to && { lte: to }) } }
           : {}),
@@ -53,7 +59,9 @@ export const transactionQueries = {
       },
       include: {
         category: { select: { id: true, name: true, icon: true, color: true } },
-        parentCategory: { select: { id: true, name: true, icon: true, color: true } },
+        parentCategory: {
+          select: { id: true, name: true, icon: true, color: true },
+        },
       },
       orderBy: { date: "desc" },
       skip: (page - 1) * limit,
@@ -66,11 +74,15 @@ export const transactionQueries = {
         userId,
         deletedAt: null,
         ...(type && { type }),
-        ...(categoryId && { OR: [{ categoryId }, { parentCategoryId: categoryId }] }),
+        ...(categoryId && {
+          OR: [{ categoryId }, { parentCategoryId: categoryId }],
+        }),
         ...(from || to
           ? { date: { ...(from && { gte: from }), ...(to && { lte: to }) } }
           : {}),
-        ...(search && { description: { contains: search, mode: "insensitive" } }),
+        ...(search && {
+          description: { contains: search, mode: "insensitive" },
+        }),
       },
     }),
 
@@ -97,40 +109,98 @@ export const transactionQueries = {
 
   /* ────────── REPORTS ────────── */
 
-  aggregateSummary: ({ userId, from, to }) =>
-    prisma.transaction.groupBy({
-      by: ["type"],
-      where: { userId, deletedAt: null, date: { gte: from, lte: to } },
-      _sum: { amount: true },
-    }),
+  aggregateSummary: async ({ userId, from, to, type }) => {
+    if (typeof prisma.transaction?.groupBy !== "function") return [];
+    try {
+      return await prisma.transaction.groupBy({
+        by: ["type"],
+        where: {
+          userId,
+          deletedAt: null,
+          date: { gte: from, lte: to },
+          ...(type && { type }),
+        },
+        _sum: { amount: true },
+      });
+    } catch (err) {
+      console.error("[finance] aggregateSummary failed:", err.message);
+      return [];
+    }
+  },
 
-  aggregateByCategory: ({ userId, from, to }) =>
-    prisma.transaction.groupBy({
-      by: ["categoryId"],
-      where: { userId, deletedAt: null, date: { gte: from, lte: to }, type: "expense" },
-      _sum: { amount: true },
-      orderBy: { _sum: { amount: "desc" } },
-    }),
+  aggregateByCategory: async ({ userId, from, to }) => {
+    if (typeof prisma.transaction?.groupBy !== "function") return [];
+    try {
+      return await prisma.transaction.groupBy({
+        by: ["categoryId"],
+        where: {
+          userId,
+          deletedAt: null,
+          date: { gte: from, lte: to },
+          type: "expense",
+        },
+        _sum: { amount: true },
+        orderBy: { _sum: { amount: "desc" } },
+      });
+    } catch (err) {
+      console.error("[finance] aggregateByCategory failed:", err.message);
+      return [];
+    }
+  },
 
-  aggregateByDomain: ({ userId, from, to }) =>
-    prisma.transaction.groupBy({
-      by: ["parentCategoryId", "type"],
-      where: { userId, deletedAt: null, date: { gte: from, lte: to } },
-      _sum: { amount: true },
-    }),
+  aggregateByDomain: async ({ userId, from, to, type }) => {
+    if (typeof prisma.transaction?.groupBy !== "function") return [];
+    try {
+      return await prisma.transaction.groupBy({
+        by: ["parentCategoryId", "type"],
+        where: {
+          userId,
+          deletedAt: null,
+          date: { gte: from, lte: to },
+          ...(type && { type }),
+        },
+        _sum: { amount: true },
+      });
+    } catch (err) {
+      console.error("[finance] aggregateByDomain failed:", err.message);
+      return [];
+    }
+  },
 
-  trendRaw: ({ userId, from, to }) =>
-    prisma.$queryRaw`
-      SELECT
-        TO_CHAR(date, 'YYYY-MM') AS period,
-        type,
-        SUM(amount)::float AS total
-      FROM finance_transactions
-      WHERE "userId" = ${userId}
-        AND "deletedAt" IS NULL
-        AND date >= ${from}
-        AND date <= ${to}
-      GROUP BY period, type
-      ORDER BY period ASC
-    `,
+  trendRaw: async ({ userId, from, to, type }) => {
+    if (typeof prisma.$queryRaw !== "function") return [];
+    try {
+      return type
+        ? await prisma.$queryRaw`
+            SELECT
+              TO_CHAR(date, 'YYYY-MM') AS period,
+              type,
+              SUM(amount)::float AS total
+            FROM finance_transactions
+            WHERE "userId" = ${userId}
+              AND "deletedAt" IS NULL
+              AND date >= ${from}
+              AND date <= ${to}
+              AND type = ${type}
+            GROUP BY period, type
+            ORDER BY period ASC
+          `
+        : await prisma.$queryRaw`
+            SELECT
+              TO_CHAR(date, 'YYYY-MM') AS period,
+              type,
+              SUM(amount)::float AS total
+            FROM finance_transactions
+            WHERE "userId" = ${userId}
+              AND "deletedAt" IS NULL
+              AND date >= ${from}
+              AND date <= ${to}
+            GROUP BY period, type
+            ORDER BY period ASC
+          `;
+    } catch (err) {
+      console.error("[finance] trendRaw failed:", err.message);
+      return [];
+    }
+  },
 };

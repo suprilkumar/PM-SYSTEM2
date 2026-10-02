@@ -3,9 +3,9 @@ import { unstable_cache } from "next/cache";
 import { withAuth } from "@/core/api/handler";
 import { okCached } from "@/core/api/response";
 import { transactionQueries, categoryQueries } from "@/modules/finance/lib/queries";
-import { getRange } from "@/modules/finance/lib/dates";
+import { resolveRange } from "@/modules/finance/lib/dates";
 
-function makeReportsLoader(userId, fromISO, toISO) {
+function makeReportsLoader(userId, fromISO, toISO, type) {
   return unstable_cache(
     async () => {
       const from = new Date(fromISO);
@@ -13,10 +13,10 @@ function makeReportsLoader(userId, fromISO, toISO) {
 
       const [summaryRaw, byCategoryRaw, byDomainRaw, trendRaw, categories] =
         await Promise.all([
-          transactionQueries.aggregateSummary({ userId, from, to }),
+          transactionQueries.aggregateSummary({ userId, from, to, type }),
           transactionQueries.aggregateByCategory({ userId, from, to }),
-          transactionQueries.aggregateByDomain({ userId, from, to }),
-          transactionQueries.trendRaw({ userId, from, to }),
+          transactionQueries.aggregateByDomain({ userId, from, to, type }),
+          transactionQueries.trendRaw({ userId, from, to, type }),
           categoryQueries.list({ userId }),
         ]);
 
@@ -70,7 +70,11 @@ function makeReportsLoader(userId, fromISO, toISO) {
       const periodMap = new Map();
       for (const row of trendRaw) {
         if (!periodMap.has(row.period)) {
-          periodMap.set(row.period, { period: row.period, income: 0, expense: 0 });
+          periodMap.set(row.period, {
+            period: row.period,
+            income: 0,
+            expense: 0,
+          });
         }
         const entry = periodMap.get(row.period);
         entry[row.type] = Number(row.total);
@@ -93,7 +97,7 @@ function makeReportsLoader(userId, fromISO, toISO) {
         topCategories,
       };
     },
-    [`finance-reports-${userId}-${fromISO}-${toISO}`],
+    [`finance-reports-${userId}-${fromISO}-${toISO}-${type ?? "all"}`],
     {
       revalidate: 60,
       tags: [`finance-${userId}`],
@@ -103,22 +107,31 @@ function makeReportsLoader(userId, fromISO, toISO) {
 
 export const GET = withAuth(async (req, _ctx, user) => {
   const { searchParams } = new URL(req.url);
-  const range = searchParams.get("range") ?? "month";
+  const preset = searchParams.get("range") ?? "this-month";
   const fromStr = searchParams.get("from");
   const toStr = searchParams.get("to");
+  const typeFilter = searchParams.get("type") || null;
 
-  const { from: defaultFrom, to: defaultTo } = getRange(range);
-  const from = fromStr ? new Date(fromStr) : defaultFrom;
-  const to = toStr ? new Date(toStr) : defaultTo;
+  // Build the range: explicit from/to wins, else resolve from preset
+  let range;
+  if (fromStr && toStr) {
+    range = { from: new Date(fromStr), to: new Date(toStr) };
+  } else {
+    range = resolveRange({ preset });
+  }
 
   const payload = await makeReportsLoader(
     user.id,
-    from.toISOString(),
-    to.toISOString()
+    range.from.toISOString(),
+    range.to.toISOString(),
+    typeFilter
   )();
 
   return okCached(
-    { range: { from, to, granularity: range }, ...payload },
+    {
+      range: { from: range.from, to: range.to, granularity: preset },
+      ...payload,
+    },
     { seconds: 30 }
   );
 });
