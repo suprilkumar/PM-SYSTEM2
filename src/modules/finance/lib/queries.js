@@ -128,44 +128,64 @@ export const transactionQueries = {
     }
   },
 
-  aggregateByCategory: async ({ userId, from, to }) => {
-    if (typeof prisma.transaction?.groupBy !== "function") return [];
-    try {
-      return await prisma.transaction.groupBy({
-        by: ["categoryId"],
-        where: {
-          userId,
-          deletedAt: null,
-          date: { gte: from, lte: to },
-          type: "expense",
-        },
-        _sum: { amount: true },
-        orderBy: { _sum: { amount: "desc" } },
-      });
-    } catch (err) {
-      console.error("[finance] aggregateByCategory failed:", err.message);
-      return [];
-    }
-  },
+aggregateByCategory: async ({ userId, from, to, type = "expense" }) => {
+  if (typeof prisma.transaction?.groupBy !== "function") return [];
+  try {
+    return await prisma.transaction.groupBy({
+      by: ["categoryId"],
+      where: {
+        userId,
+        deletedAt: null,
+        date: { gte: from, lte: to },
+        type,
+      },
+      _sum: { amount: true },
+      orderBy: { _sum: { amount: "desc" } },
+    });
+  } catch (err) {
+    console.error("[finance] aggregateByCategory failed:", err.message);
+    return [];
+  }
+},
 
-  aggregateByDomain: async ({ userId, from, to, type }) => {
-    if (typeof prisma.transaction?.groupBy !== "function") return [];
-    try {
-      return await prisma.transaction.groupBy({
-        by: ["parentCategoryId", "type"],
-        where: {
-          userId,
-          deletedAt: null,
-          date: { gte: from, lte: to },
-          ...(type && { type }),
-        },
-        _sum: { amount: true },
-      });
-    } catch (err) {
-      console.error("[finance] aggregateByDomain failed:", err.message);
-      return [];
+ // src/modules/finance/lib/queries.js — replace aggregateByDomain
+
+aggregateByDomain: async ({ userId, from, to, type }) => {
+  if (typeof prisma.transaction?.groupBy !== "function") return [];
+  try {
+    const rows = await prisma.transaction.groupBy({
+      by: ["parentCategoryId", "categoryId", "type"],
+      where: {
+        userId,
+        deletedAt: null,
+        date: { gte: from, lte: to },
+        ...(type && { type }),
+      },
+      _sum: { amount: true },
+    });
+
+    // Roll up: a domain is either the parent category, or the category
+    // itself if it has no parent (root-level category).
+    const byDomain = new Map();
+    for (const row of rows) {
+      const domainId = row.parentCategoryId ?? row.categoryId;
+      if (!byDomain.has(domainId)) {
+        byDomain.set(domainId, {
+          domainId,
+          income: 0,
+          expense: 0,
+        });
+      }
+      const entry = byDomain.get(domainId);
+      entry[row.type] = Number(row._sum.amount ?? 0);
     }
-  },
+
+    return Array.from(byDomain.values());
+  } catch (err) {
+    console.error("[finance] aggregateByDomain failed:", err.message);
+    return [];
+  }
+},
 
   trendRaw: async ({ userId, from, to, type }) => {
     if (typeof prisma.$queryRaw !== "function") return [];
@@ -203,4 +223,43 @@ export const transactionQueries = {
       return [];
     }
   },
+
+weekdayRaw: async ({ userId, from, to, type }) => {
+  if (typeof prisma.$queryRaw !== "function") return [];
+  try {
+    if (type) {
+      return await prisma.$queryRaw`
+        SELECT
+          TRIM(TO_CHAR(date, 'Day')) AS weekday,
+          EXTRACT(DOW FROM date)::int AS dow,
+          SUM(amount)::float AS total
+        FROM finance_transactions
+        WHERE "userId" = ${userId}
+          AND "deletedAt" IS NULL
+          AND date >= ${from}
+          AND date <= ${to}
+          AND type = ${type}
+        GROUP BY weekday, dow
+        ORDER BY dow ASC
+      `;
+    }
+    return await prisma.$queryRaw`
+      SELECT
+        TRIM(TO_CHAR(date, 'Day')) AS weekday,
+        EXTRACT(DOW FROM date)::int AS dow,
+        SUM(amount)::float AS total
+      FROM finance_transactions
+      WHERE "userId" = ${userId}
+        AND "deletedAt" IS NULL
+        AND date >= ${from}
+        AND date <= ${to}
+      GROUP BY weekday, dow
+      ORDER BY dow ASC
+    `;
+  } catch (err) {
+    console.error("[finance] weekdayRaw failed:", err.message);
+    return [];
+  }
+},
 };
+

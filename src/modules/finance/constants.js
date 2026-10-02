@@ -147,3 +147,34 @@ export const DEFAULT_CATEGORIES = [
     children: [],
   },
 ];
+
+// src/modules/finance/constants.js — expand FOLDER_ICONS into a full icon set
+
+export const CATEGORY_COLORS = [
+  "#e11d48", "#f97316", "#eab308", "#84cc16",
+  "#10b981", "#06b6d4", "#3b82f6", "#6366f1",
+  "#8b5cf6", "#a855f7", "#ec4899", "#14b8a6",
+  "#64748b", "#0ea5e9", "#f43f5e", "#22c55e",
+];
+
+export const CATEGORY_ICONS = [
+  // Food
+  "UtensilsCrossed", "Utensils", "ShoppingBasket", "Milk", "Coffee", "Pizza",
+  "Apple", "IceCream", "Cake",
+  // Travel
+  "Plane", "Car", "Bus", "Train", "Fuel", "Bike", "Ship", "MapPin",
+  // Home
+  "Home", "House", "Zap", "Package", "Wrench", "Sofa", "Lamp", "Bed",
+  // Shopping
+  "ShoppingBag", "Shirt", "Smartphone", "Sparkles", "Watch", "Glasses",
+  // Recharge / Subscription
+  "Phone", "Tv", "Repeat", "Wifi", "Plug", "Radio",
+  // Health
+  "HeartPulse", "Pill", "Stethoscope", "ShieldCheck", "Activity",
+  // Investment / Finance
+  "TrendingUp", "LineChart", "PieChart", "Bitcoin", "Coins", "Wallet",
+  "CreditCard", "Banknote", "Landmark", "Receipt", "Briefcase",
+  // Misc
+  "Gift", "Star", "Heart", "Music", "Camera", "Book", "Code",
+  "Lightbulb", "MoreHorizontal", "Circle",
+];

@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import TransactionForm from "@/modules/finance/components/TransactionForm";
 import PageHeader from "@/components/layout/PageHeader";
+import FinanceNav from "@/modules/finance/components/FinanceNav";
 
 export default function NewTransactionPage() {
   const router = useRouter();
@@ -17,6 +18,9 @@ export default function NewTransactionPage() {
           { label: "New" },
         ]}
       />
+      <div className="mt-4">
+    <FinanceNav />
+    </div>
       <TransactionForm onSuccess={() => router.push("/finance")} />
     </div>
   );

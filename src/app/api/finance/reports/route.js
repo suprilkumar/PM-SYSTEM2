@@ -11,12 +11,18 @@ function makeReportsLoader(userId, fromISO, toISO, type) {
       const from = new Date(fromISO);
       const to = new Date(toISO);
 
-      const [summaryRaw, byCategoryRaw, byDomainRaw, trendRaw, categories] =
+      const [summaryRaw, byCategoryRaw, byDomainRaw, trendRaw, weekdayRaw, categories] =
         await Promise.all([
           transactionQueries.aggregateSummary({ userId, from, to, type }),
-          transactionQueries.aggregateByCategory({ userId, from, to }),
+          transactionQueries.aggregateByCategory({
+            userId,
+            from,
+            to,
+            type: type ?? "expense",
+          }),
           transactionQueries.aggregateByDomain({ userId, from, to, type }),
           transactionQueries.trendRaw({ userId, from, to, type }),
+          transactionQueries.weekdayRaw({ userId, from, to, type }),
           categoryQueries.list({ userId }),
         ]);
 
@@ -31,42 +37,53 @@ function makeReportsLoader(userId, fromISO, toISO, type) {
 
       const catMap = new Map(categories.map((c) => [c.id, c]));
 
-      const byCategory = byCategoryRaw.map((row) => {
-        const cat = catMap.get(row.categoryId);
-        const total = Number(row._sum.amount ?? 0);
-        return {
-          categoryId: row.categoryId,
-          name: cat?.name ?? "Unknown",
-          icon: cat?.icon ?? "Circle",
-          color: cat?.color ?? "#64748b",
-          total,
-          percentage: totalExpense > 0 ? (total / totalExpense) * 100 : 0,
-        };
-      });
+      const weekday = weekdayRaw.map((row) => ({
+        weekday: row.weekday,
+        expense: Number(row.total),
+        }));
 
-      const domainMap = new Map();
+      // ── By category (leaf) ──
+      const byCategory = byCategoryRaw
+        .map((row) => {
+          const cat = catMap.get(row.categoryId);
+          const total = Number(row._sum.amount ?? 0);
+          return {
+            categoryId: row.categoryId,
+            name: cat?.name ?? "Unknown",
+            icon: cat?.icon ?? "Circle",
+            color: cat?.color ?? "#64748b",
+            total,
+            percentage: totalExpense > 0 ? (total / totalExpense) * 100 : 0,
+          };
+        })
+        .filter((c) => c.total > 0);
+
+      // ── By domain (parent, or self if root) ──
+      const domainTotals = new Map();
       for (const row of byDomainRaw) {
-        const key = row.parentCategoryId ?? "__none__";
-        if (!domainMap.has(key)) {
-          const parentCat = row.parentCategoryId
-            ? catMap.get(row.parentCategoryId)
-            : null;
-          domainMap.set(key, {
-            id: key,
-            name: parentCat?.name ?? "Uncategorized",
-            color: parentCat?.color ?? "#64748b",
-            icon: parentCat?.icon ?? "Circle",
-            income: 0,
-            expense: 0,
-          });
+        if (!domainTotals.has(row.domainId)) {
+          domainTotals.set(row.domainId, { income: 0, expense: 0 });
         }
-        const entry = domainMap.get(key);
-        entry[row.type] = Number(row._sum.amount ?? 0);
+        const entry = domainTotals.get(row.domainId);
+        entry[row.type] = (entry[row.type] ?? 0) + Number(row[row.type] ?? 0);
       }
-      const byDomain = Array.from(domainMap.values()).sort(
-        (a, b) => b.expense + b.income - (a.expense + a.income)
-      );
 
+      const byDomain = Array.from(domainTotals.entries())
+        .map(([id, totals]) => {
+          const cat = catMap.get(id);
+          return {
+            id,
+            name: cat?.name ?? "Uncategorized",
+            color: cat?.color ?? "#64748b",
+            icon: cat?.icon ?? "Circle",
+            income: totals.income,
+            expense: totals.expense,
+          };
+        })
+        .filter((d) => d.income > 0 || d.expense > 0)
+        .sort((a, b) => b.expense + b.income - (a.expense + a.income));
+
+      // ── Trend ──
       const periodMap = new Map();
       for (const row of trendRaw) {
         if (!periodMap.has(row.period)) {
@@ -83,6 +100,7 @@ function makeReportsLoader(userId, fromISO, toISO, type) {
         .sort((a, b) => a.period.localeCompare(b.period))
         .map((t) => ({ ...t, savings: t.income - t.expense }));
 
+      // ── Top categories ──
       const topCategories = byCategory.slice(0, 5).map((c) => ({
         name: c.name,
         total: c.total,
@@ -95,6 +113,7 @@ function makeReportsLoader(userId, fromISO, toISO, type) {
         byDomain,
         trend,
         topCategories,
+        weekday,
       };
     },
     [`finance-reports-${userId}-${fromISO}-${toISO}-${type ?? "all"}`],
@@ -112,7 +131,7 @@ export const GET = withAuth(async (req, _ctx, user) => {
   const toStr = searchParams.get("to");
   const typeFilter = searchParams.get("type") || null;
 
-  // Build the range: explicit from/to wins, else resolve from preset
+  // Explicit from/to wins, else resolve from preset
   let range;
   if (fromStr && toStr) {
     range = { from: new Date(fromStr), to: new Date(toStr) };

@@ -8,6 +8,7 @@ import CategoryIcon from "@/modules/finance/components/CategoryIcon";
 import { formatCurrency } from "@/modules/finance/lib/format";
 import { cn } from "@/core/utils/cn";
 import PageHeader from "@/components/layout/PageHeader";
+import FinanceNav from "@/modules/finance/components/FinanceNav";
 
 export default function ReportsPage() {
   const [range, setRange] = useState("month");
@@ -25,6 +26,9 @@ export default function ReportsPage() {
             showBack={false}
         />
       <h1 className="text-xl font-bold">Reports</h1>
+      <div className="mt-4">
+    <FinanceNav />
+    </div>
 
       {/* Range switch */}
       <div className="flex flex-wrap gap-1 rounded-lg border p-1">

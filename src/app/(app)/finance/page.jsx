@@ -16,6 +16,7 @@ import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { formatCurrency } from "@/modules/finance/lib/format";
 import { MONTHS_SHORT } from "@/modules/finance/lib/dates";
 import { SkeletonStatGrid, SkeletonTable } from "@/components/ui/skeleton";
+import FinanceNav from "@/modules/finance/components/FinanceNav";
 
 const MONTHS_LONG = [
   "January", "February", "March", "April", "May", "June",
@@ -89,7 +90,11 @@ const TOOLTIP_STYLE = {
               </p>
             </div>
             <ActionBar />
+ 
           </div>
+                     <div className="mt-4">
+  <FinanceNav />
+</div>
 
           {/* Stats strip */}
           <StatsStrip

@@ -22,6 +22,7 @@ import { SkeletonTable } from "@/components/ui/skeleton";
 import { resolveRange } from "@/modules/finance/lib/dates";
 import { invalidateFinanceCache } from "@/modules/finance/lib/cache";
 import { cn } from "@/core/utils/cn";
+import FinanceNav from "@/modules/finance/components/FinanceNav";
 
 export default function TransactionsPage() {
   return (
@@ -142,6 +143,9 @@ function TransactionsInner() {
           </Link>
         }
       />
+      <div className="mt-4">
+  <FinanceNav />
+</div>
 
       {/* View toggle */}
       <div className="mt-6 flex items-center gap-2">

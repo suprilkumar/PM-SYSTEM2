@@ -155,21 +155,24 @@ export default function CategoryPicker({
           {/* List */}
           <div className="max-h-[280px] overflow-y-auto py-1">
             {filtered.length === 0 ? (
-              <div className="px-3 py-6 text-center text-xs text-muted-foreground">
-                No categories match "{search}"
+            <div className="px-3 py-4 text-center text-xs">
+                <p className="text-muted-foreground">
+                No categories match <strong>"{search}"</strong>
+                </p>
                 {onCreateRequest && (
-                  <button
+                <button
                     type="button"
                     onClick={() => {
-                      setOpen(false);
-                      onCreateRequest();
+                    setOpen(false);
+                    onCreateRequest();
                     }}
-                    className="mt-2 flex w-full items-center justify-center gap-1 text-primary hover:underline"
-                  >
-                    <Plus className="h-3 w-3" /> Add new category
-                  </button>
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary/10"
+                >
+                    <Plus className="h-3.5 w-3.5" />
+                    Create "{search}"
+                </button>
                 )}
-              </div>
+            </div>
             ) : (
               filtered.map((c) => (
                 <button
