@@ -2,10 +2,10 @@
 import { withAuth } from "@/core/api/handler";
 import { ok } from "@/core/api/response";
 import { transactionQueries } from "@/modules/finance/lib/queries";
-import { getRange } from "@/modules/finance/lib/dates";
+import { resolveRange } from "@/modules/finance/lib/dates";
 
 export const GET = withAuth(async (_req, _ctx, user) => {
-  const { from, to } = getRange("month");
+  const { from, to } = resolveRange({ preset: "this-month" });
 
   const [summaryRaw, recentTxns] = await Promise.all([
     transactionQueries.aggregateSummary({ userId: user.id, from, to }),
@@ -25,7 +25,8 @@ export const GET = withAuth(async (_req, _ctx, user) => {
       totalIncome,
       totalExpense,
       netSavings: totalIncome - totalExpense,
-      savingsRate: totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0,
+      savingsRate:
+        totalIncome > 0 ? ((totalIncome - totalExpense) / totalIncome) * 100 : 0,
     },
     recentTransactions: recentTxns,
   });
