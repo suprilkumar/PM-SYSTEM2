@@ -3,20 +3,8 @@
 
 import { useMemo, useState } from "react";
 import useSWR from "swr";
-import {
-  Plus,
-  Search,
-  Pencil,
-  Trash2,
-  Archive,
-  ArchiveRestore,
-  FolderTree,
-  LayoutGrid,
-  List,
-  Rows3,
-  ChevronDown,
-  MoreHorizontal,
-} from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Archive, ArchiveRestore, FolderTree, LayoutGrid, 
+    List, Rows3, ChevronDown, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 import PageHeader from "@/components/layout/PageHeader";
 import CategoryIcon from "@/modules/finance/components/CategoryIcon";

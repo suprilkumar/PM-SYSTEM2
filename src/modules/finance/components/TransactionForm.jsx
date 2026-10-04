@@ -1,22 +1,14 @@
 // src/modules/finance/components/TransactionForm.jsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Save,
-  Plus,
-  Wallet,
-  CreditCard,
-  Building2,
-  Smartphone,
-  Circle,
-} from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Save, Wallet, CreditCard, Building2,
+  Smartphone, Circle, ChevronLeft, ChevronRight } from "lucide-react";
 import CategoryPicker from "./CategoryPicker";
 import QuickCategoryDialog from "./QuickCategoryDialog";
+import DatePicker from "./DatePicker";
 import { useCategories } from "../hooks/useCategories";
 import { PAYMENT_METHODS } from "../constants";
 import { invalidateFinanceCache } from "../lib/cache";
@@ -32,12 +24,26 @@ const PAYMENT_ICONS = {
   other: Circle,
 };
 
-function toDateInput(d) {
-  const dt = new Date(d);
-  const y = dt.getFullYear();
-  const m = String(dt.getMonth() + 1).padStart(2, "0");
-  const day = String(dt.getDate()).padStart(2, "0");
+function todayISO() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function shiftDateISO(iso, deltaDays) {
+  if (!iso) return todayISO();
+  const [y, m, d] = iso.split("-").map(Number);
+  const next = new Date(y, m - 1, d + deltaDays);
+  const yy = next.getFullYear();
+  const mm = String(next.getMonth() + 1).padStart(2, "0");
+  const dd = String(next.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
+function isTodayISO(iso) {
+  return iso === todayISO();
 }
 
 export default function TransactionForm({ initial, onSuccess }) {
@@ -47,7 +53,11 @@ export default function TransactionForm({ initial, onSuccess }) {
   const [type, setType] = useState(initial?.type ?? "expense");
   const [amount, setAmount] = useState(initial?.amount?.toString() ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
-  const [date, setDate] = useState(toDateInput(initial?.date ?? new Date()));
+  const [date, setDate] = useState(
+    initial?.date
+      ? new Date(initial.date).toISOString().slice(0, 10)
+      : todayISO()
+  );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [paymentMethod, setPaymentMethod] = useState(
     initial?.paymentMethod ?? "upi"
@@ -62,6 +72,7 @@ export default function TransactionForm({ initial, onSuccess }) {
   const reset = () => {
     setAmount("");
     setDescription("");
+    // Date stays — user often enters several transactions on the same day.
   };
 
   const submit = async (mode) => {
@@ -115,9 +126,10 @@ export default function TransactionForm({ initial, onSuccess }) {
           e.preventDefault();
           submit("save");
         }}
-        className="space-y-4"
+        // pb-40 on mobile reserves room for the sticky action bar
+        className="space-y-4 pb-40 md:pb-0"
       >
-        {/* Big type toggle */}
+        {/* Type toggle */}
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
@@ -128,7 +140,7 @@ export default function TransactionForm({ initial, onSuccess }) {
             className={cn(
               "flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition-all",
               type === "expense"
-                ? "border-red-500 bg-red-500/10 text-red-600 dark:text-red-400 shadow-sm"
+                ? "border-red-500 bg-red-500/10 text-red-600 shadow-sm dark:text-red-400"
                 : "border-border bg-background text-muted-foreground hover:border-red-500/40"
             )}
           >
@@ -144,7 +156,7 @@ export default function TransactionForm({ initial, onSuccess }) {
             className={cn(
               "flex items-center justify-center gap-2 rounded-xl border-2 py-3 text-sm font-semibold transition-all",
               type === "income"
-                ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400 shadow-sm"
+                ? "border-green-500 bg-green-500/10 text-green-600 shadow-sm dark:text-green-400"
                 : "border-border bg-background text-muted-foreground hover:border-green-500/40"
             )}
           >
@@ -153,7 +165,7 @@ export default function TransactionForm({ initial, onSuccess }) {
           </button>
         </div>
 
-        {/* Amount — hero input */}
+        {/* Amount */}
         <div className="rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-4">
           <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Amount
@@ -194,17 +206,53 @@ export default function TransactionForm({ initial, onSuccess }) {
           </div>
         </div>
 
-        {/* Date + payment side by side */}
+        {/* Date + Payment */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="text-xs font-medium">Date</label>
-            <Input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="mt-1 h-11"
-            />
-          </div>
+         <div>
+  <div className="flex items-baseline justify-between">
+    <label className="text-xs font-medium">Date</label>
+    {!isTodayISO(date) && (
+      <button
+        type="button"
+        onClick={() => setDate(todayISO())}
+        className="text-[10px] font-medium text-primary transition hover:underline"
+      >
+        Jump to today
+      </button>
+    )}
+  </div>
+
+  <div className="mt-1 flex items-stretch gap-1">
+    {/* Previous day */}
+    <button
+      type="button"
+      onClick={() => setDate((d) => shiftDateISO(d, -1))}
+      className="grid w-10 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground active:scale-95"
+      aria-label="Previous day"
+      title="Previous day"
+    >
+      <ChevronLeft className="h-4 w-4" />
+    </button>
+
+    <div className="min-w-0 flex-1">
+      <DatePicker value={date} onChange={setDate} />
+    </div>
+
+    {/* Next day */}
+    <button
+      type="button"
+      onClick={() => setDate((d) => shiftDateISO(d, 1))}
+      disabled={isTodayISO(date)}
+      className="grid w-10 shrink-0 place-items-center rounded-lg border bg-background text-muted-foreground transition hover:bg-accent hover:text-foreground active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-background"
+      aria-label="Next day"
+      title={
+        isTodayISO(date) ? "Can't go beyond today" : "Next day"
+      }
+    >
+      <ChevronRight className="h-4 w-4" />
+    </button>
+  </div>
+</div>
 
           <div>
             <label className="text-xs font-medium">Payment</label>
@@ -248,28 +296,30 @@ export default function TransactionForm({ initial, onSuccess }) {
           />
         </div>
 
-        {/* Actions — sticky on mobile */}
-        <div className="sticky bottom-20 flex flex-col-reverse gap-2 pt-2 md:static md:bottom-auto md:flex-row md:justify-end">
-          {!isEdit && (
+        {/* Actions — sticky on mobile with reserved space above it */}
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 p-3 backdrop-blur md:static md:inset-auto md:z-auto md:border-0 md:bg-transparent md:p-0 md:pt-2 md:backdrop-blur-none">
+          <div className="mx-auto flex max-w-3xl flex-col-reverse gap-2 md:flex-row md:justify-end">
+            {!isEdit && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={saving || !amountValid || !categoryId}
+                onClick={() => submit("saveAndNew")}
+                className="md:mr-auto"
+              >
+                {saving ? "Saving…" : "Save & add another"}
+              </Button>
+            )}
             <Button
-              type="button"
-              variant="outline"
+              type="submit"
               disabled={saving || !amountValid || !categoryId}
-              onClick={() => submit("saveAndNew")}
-              className="sm:mr-auto"
+              size="lg"
+              className="gap-1.5"
             >
-              {saving ? "Saving…" : "Save & add another"}
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : isEdit ? "Update" : "Save"}
             </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={saving || !amountValid || !categoryId}
-            size="lg"
-            className="gap-1.5"
-          >
-            <Save className="h-4 w-4" />
-            {saving ? "Saving…" : isEdit ? "Update" : "Save"}
-          </Button>
+          </div>
         </div>
       </form>
 
