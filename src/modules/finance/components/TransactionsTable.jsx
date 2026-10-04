@@ -410,13 +410,22 @@ function MobileRow({ txn, onDelete }) {
         </div>
       </Link>
 
-      <button
-        onClick={() => onDelete?.(txn.id)}
-        className="grid w-11 shrink-0 place-items-center border-l border-border/60 text-muted-foreground transition active:bg-destructive/10 active:text-destructive"
-        aria-label="Delete transaction"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      <div className="flex shrink-0 border-l border-border/60">
+        <Link
+          href={`/finance/transactions/${txn.id}/edit`}
+          className="grid w-11 place-items-center text-muted-foreground transition active:bg-accent active:text-foreground"
+          aria-label="Edit"
+        >
+          <Pencil className="h-4 w-4" />
+        </Link>
+        <button
+          onClick={() => onDelete?.(txn.id)}
+          className="grid w-11 place-items-center border-l border-border/60 text-muted-foreground transition active:bg-destructive/10 active:text-destructive"
+          aria-label="Delete"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }

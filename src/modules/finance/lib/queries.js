@@ -4,11 +4,18 @@ import { prisma } from "@/core/db/client";
 /* ────────── CATEGORIES ────────── */
 
 export const categoryQueries = {
-  list: ({ userId, includeArchived = false }) =>
-    prisma.category.findMany({
-      where: { userId, ...(includeArchived ? {} : { isArchived: false }) },
-      orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
-    }),
+  list: ({ userId, includeArchived = false, onlyArchived = false }) =>
+  prisma.category.findMany({
+    where: {
+      userId,
+      ...(onlyArchived
+        ? { isArchived: true }
+        : includeArchived
+        ? {}
+        : { isArchived: false }),
+    },
+    orderBy: [{ type: "asc" }, { sortOrder: "asc" }, { name: "asc" }],
+  }),
 
   byId: ({ userId, id }) =>
     prisma.category.findFirst({ where: { id, userId } }),

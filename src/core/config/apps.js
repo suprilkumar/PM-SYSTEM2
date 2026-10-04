@@ -37,6 +37,7 @@ export const APPS = [
       { name: "Reports", href: "/finance/reports", icon: "BarChart3" },
     ],
   },
+  { id: "trash", name: "Trash", href: "/trash", icon: "Trash2", order: 99 },
   // Future apps go here
 ];
 

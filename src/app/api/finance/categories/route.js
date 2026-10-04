@@ -9,12 +9,16 @@ import { seedCategoriesIfEmpty } from "@/modules/finance/lib/seed";
 export const GET = withAuth(async (req, _ctx, user) => {
   await seedCategoriesIfEmpty(user.id);
 
+  //const includeArchived = searchParams.get("archived") === "true";
+
   const { searchParams } = new URL(req.url);
-  const includeArchived = searchParams.get("archived") === "true";
+  const archived = searchParams.get("archived"); // "true" | "only" | null
+
 
   const categories = await categoryQueries.list({
     userId: user.id,
-    includeArchived,
+    includeArchived: archived === "true",
+    onlyArchived: archived === "only",
   });
 
   // Categories change rarely — safe to cache longer

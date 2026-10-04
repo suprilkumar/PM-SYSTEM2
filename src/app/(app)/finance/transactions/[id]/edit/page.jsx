@@ -1,4 +1,3 @@
-// src/app/(app)/finance/transactions/[id]/edit/page.jsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -6,9 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import TransactionForm from "@/modules/finance/components/TransactionForm";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
+import PageHeader from "@/components/layout/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Trash2, Copy } from "lucide-react";
-import PageHeader from "@/components/layout/PageHeader";
+import { invalidateFinanceCache } from "@/modules/finance/lib/cache";
 
 export default function EditTransactionPage() {
   const { id } = useParams();
@@ -16,6 +17,8 @@ export default function EditTransactionPage() {
   const [txn, setTxn] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,42 +42,22 @@ export default function EditTransactionPage() {
   }, [id]);
 
   const handleDelete = async () => {
-    if (!confirm("Delete this transaction?")) return;
-    const res = await fetch(`/api/finance/transactions/${id}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      toast.success("Transaction deleted");
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/finance/transactions/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Could not delete");
+      await invalidateFinanceCache();
+      toast.success("Moved to trash");
       router.push("/finance/transactions");
       router.refresh();
-    } else {
-      toast.error("Could not delete");
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
     }
   };
-
-  
-const handleDuplicate = async () => {
-  if (!txn) return;
-  const res = await fetch("/api/finance/transactions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      amount: Number(txn.amount),
-      type: txn.type,
-      categoryId: txn.categoryId,
-      date: new Date().toISOString(),
-      description: txn.description,
-      paymentMethod: txn.paymentMethod,
-    }),
-  });
-  if (res.ok) {
-    toast.success("Duplicated");
-    router.push("/finance/transactions");
-    router.refresh();
-  } else {
-    toast.error("Could not duplicate");
-  }
-};
 
   if (loading) {
     return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
@@ -96,55 +79,41 @@ const handleDuplicate = async () => {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 p-4 md:p-6">
-        <PageHeader
-  title="Edit transaction"
-  description={txn?.category?.name ?? ""}
-  breadcrumbs={[
-    { label: "Finance", href: "/finance" },
-    { label: "Transactions", href: "/finance/transactions" },
-    { label: "Edit" },
-  ]}
-  actions={
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={handleDelete}
-      className="text-destructive hover:bg-destructive/10"
-    >
-      <Trash2 className="mr-1 h-4 w-4" />
-      Delete
-    </Button>
-  }
-/>
-            <Button variant="ghost" size="sm" onClick={() => router.back()}>
-          ← Back
-        </Button>
-    <div className="flex items-center gap-2">
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={handleDuplicate}
-  >
-    <Copy className="mr-1 h-4 w-4" />
-    Duplicate
-  </Button>
-  <Button
-    variant="outline"
-    size="sm"
-    onClick={handleDelete}
-    className="text-destructive hover:bg-destructive/10"
-  >
-    <Trash2 className="mr-1 h-4 w-4" />
-    Delete
-  </Button>
-</div>
-
-      <h1 className="text-xl font-bold">Edit transaction</h1>
+    <div className="mx-auto w-full max-w-2xl space-y-4 p-4 md:p-6">
+      <PageHeader
+        title="Edit transaction"
+        description={txn?.category?.name ?? ""}
+        breadcrumbs={[
+          { label: "Finance", href: "/finance" },
+          { label: "Transactions", href: "/finance/transactions" },
+          { label: "Edit" },
+        ]}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setConfirmOpen(true)}
+            className="gap-1.5 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        }
+      />
 
       <TransactionForm
         initial={txn}
         onSuccess={() => router.push("/finance/transactions")}
+      />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={handleDelete}
+        loading={deleting}
+        title="Delete this transaction?"
+        description={`${txn?.category?.name ?? ""} · ${txn?.description ?? ""} · ${txn?.amount ?? ""}`}
+        confirmLabel="Move to trash"
       />
     </div>
   );
