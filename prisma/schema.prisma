@@ -25,7 +25,10 @@ model User {
   categories   Category[]
   transactions Transaction[]
 
-  folders Folder[]
+  folders       Folder[]
+  vaultSettings VaultSettings?
+  vaultItems    VaultItem[]
+  vaultAudits   VaultAudit[]
 
   @@map("user")
 }
@@ -239,4 +242,99 @@ model Transaction {
   @@index([userId, parentCategoryId, date(sort: Desc)])
   @@index([userId, categoryId, date(sort: Desc)])
   @@map("finance_transactions")
+}
+
+// ─────────────── VAULT (password manager) ───────────────
+
+model VaultSettings {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Key derivation params (all plaintext on server)
+  kdfSalt      String // base64
+  kdfAlgorithm String @default("argon2id") // "argon2id" | "pbkdf2"
+  kdfParams    Json // { memory, iterations, parallelism }
+
+  // PIN gate — server uses this only for rate-limiting
+  pinHash String
+  pinSalt String
+
+  // Wrapped master key
+  // ── Two independent wraps of the SAME master key ──
+  wrappedByPassword      String
+  wrappedByPasswordNonce String
+  wrappedByPin           String
+  wrappedByPinNonce      String
+  wrappedAlgorithm       String @default("xchacha20-poly1305")
+
+  // Check value: encrypt of "vault-check" with master key
+  checkValue String
+  checkNonce String
+
+  // ── Recovery identity ──
+  recoveryEmail String
+  recoveryDob   DateTime // stored as date, plaintext (used for verification)
+
+  // ── Server-side recovery envelope ──
+  // Wrapped with a key derived from RECOVERY_SERVER_SECRET env var.
+  // Only released after OTP verification.
+  serverRecoveryBlob  String?
+  serverRecoveryNonce String?
+
+  // Recovery OTP state
+  recoveryOtpHash      String?
+  recoveryOtpExpiresAt DateTime?
+  recoveryAttempts     Int       @default(0)
+
+  // Lockout state
+  failedAttempts Int       @default(0)
+  lockedUntil    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("vault_settings")
+}
+
+model VaultItem {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind            String // "email" | "bank" | "card" | "social" | "cloud" | "ssh" | "custom"
+  labelCiphertext String
+  labelNonce      String
+  ciphertext      String
+  nonce           String
+  algorithm       String @default("xchacha20-poly1305")
+
+  isFavorite Boolean @default(false)
+  isArchived Boolean @default(false)
+  sortOrder  Int     @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, kind])
+  @@index([userId, updatedAt])
+  @@index([userId, deletedAt])
+  @@map("vault_items")
+}
+
+model VaultAudit {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  action    String // create | read | update | delete | unlock | lock | failed_unlock
+  itemId    String?
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@map("vault_audit")
 }

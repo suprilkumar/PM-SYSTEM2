@@ -8,6 +8,7 @@ import * as Icons from "lucide-react";
 import { APPS, SETTINGS_ITEM } from "@/core/config/apps";
 import { cn } from "@/core/utils/cn";
 import { emit } from "@/core/utils/events";
+import { useVaultStatus } from "@/modules/vault/hooks/useVaultStatus";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -42,11 +43,20 @@ export default function Sidebar() {
 
 function SidebarItem({ item, pathname }) {
   const Icon = Icons[item.icon] ?? Icons.Circle;
-  const hasChildren = item.children?.length > 0;
+  const hasChildren = (item.children?.length ?? 0) > 0;
   const isActive =
     pathname === item.href || pathname.startsWith(item.href + "/");
 
   const [open, setOpen] = useState(isActive);
+
+  const isVault = item.id === "vault";
+  const { unlocked } = useVaultStatus();
+
+  const visibleChildren = isVault
+    ? unlocked
+      ? item.children ?? []
+      : (item.children ?? []).slice(0, 1)
+    : item.children ?? [];
 
   // Auto-open the group when the route changes into it
   useEffect(() => {
@@ -54,6 +64,7 @@ function SidebarItem({ item, pathname }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
+  // ── No children ──
   if (!hasChildren) {
     return (
       <Link
@@ -71,6 +82,25 @@ function SidebarItem({ item, pathname }) {
     );
   }
 
+  // ── Locked vault: single flat link ──
+  if (isVault && !unlocked) {
+    return (
+      <Link
+        href="/vault"
+        className={cn(
+          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+          isActive
+            ? "bg-gradient-to-r from-primary/15 to-magenta-500/5 font-medium text-primary shadow-sm"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        {item.name}
+      </Link>
+    );
+  }
+
+  // ── Accordion ──
   return (
     <div>
       <button
@@ -101,17 +131,16 @@ function SidebarItem({ item, pathname }) {
       >
         <div className="min-h-0">
           <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/60 pl-3">
-            {item.children.map((child) => {
+            {visibleChildren.map((child) => {
               const CIcon = Icons[child.icon] ?? Icons.Circle;
 
-              // Action-type child — fires an event instead of navigating
+              // Action-type child
               if (child.action) {
                 return (
                   <button
                     key={child.name}
                     onClick={() => {
                       emit(child.action, {});
-                      // Ensure we're on a notes route so the listener exists
                       if (!pathname.startsWith("/notes")) {
                         window.location.href = "/notes";
                       }
@@ -124,7 +153,7 @@ function SidebarItem({ item, pathname }) {
                 );
               }
 
-              // Route-type child — normal Link
+              // Route child
               const childActive =
                 pathname === child.href ||
                 (child.href !== item.href && pathname.startsWith(child.href + "/"));

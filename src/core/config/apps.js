@@ -37,6 +37,21 @@ export const APPS = [
       { name: "Reports", href: "/finance/reports", icon: "BarChart3" },
     ],
   },
+  // src/core/config/apps.js
+{
+  id: "vault",
+  name: "Vault",
+  href: "/vault",
+  icon: "KeyRound",
+  order: 3,
+  children: [
+    { name: "All items", href: "/vault", icon: "List" },
+    { name: "New item", href: "/vault/new", icon: "Plus" },
+    { name: "Audit log", href: "/vault/audit", icon: "ScrollText" },
+    { name: "Settings", href: "/vault/settings", icon: "Settings" },
+    { name: "How it works", href: "/vault/guide", icon: "BookOpen" },
+  ],
+},
   { id: "trash", name: "Trash", href: "/trash", icon: "Trash2", order: 99 },
   // Future apps go here
 ];

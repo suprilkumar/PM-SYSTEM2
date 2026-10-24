@@ -22,6 +22,7 @@ export function proxy(req) {
     pathname.startsWith("/settings") ||
     pathname.startsWith("/notes") ||
     pathname.startsWith("/finance") ||
+    pathname.startsWith("/vault") ||
     pathname.startsWith("/trash");
 
   if (isProtected && !sessionCookie) {
@@ -43,6 +44,7 @@ export const config = {
     "/settings/:path*",
     "/notes/:path*",
     "/finance/:path*",
+    "/vault/:path*",
     "/trash",
     "/login",
     "/share/:path*",
