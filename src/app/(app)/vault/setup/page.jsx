@@ -4,21 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ShieldCheck, Lock, KeyRound, Mail, Calendar } from "lucide-react";
-import {
-  deriveKey,
-  wrapMasterKey,
-  makeCheckValue,
-  generateSalt,
-  randomBytes,
-  bytesToBase64,
-  DEFAULT_KDF,
-  base64ToBytes,
-} from "@/modules/vault/crypto";
-import {
-  validatePassword,
-  validatePin,
-  validateDob,
-} from "@/modules/vault/lib/password-policy";
+import { deriveKey, wrapMasterKey, makeCheckValue, generateSalt, randomBytes, bytesToBase64,
+  DEFAULT_KDF, base64ToBytes } from "@/modules/vault/crypto";
+import { validatePassword, validatePin, validateDob } from "@/modules/vault/lib/password-policy";
 import { useVault } from "@/modules/vault/context/VaultContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

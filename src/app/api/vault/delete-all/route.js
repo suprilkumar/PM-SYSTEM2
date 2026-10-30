@@ -2,13 +2,14 @@ import { withAuth } from "@/core/api/handler";
 import { ok, badRequest } from "@/core/api/response";
 import { prisma } from "@/core/db/client";
 import { z } from "zod";
-import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
-import { sha512 } from "@noble/hashes/sha512.js";
 import {
+  deriveKey,
   base64ToBytes,
   bytesToBase64,
   utf8ToBytes,
   concatBytes,
+  constantTimeEqual,
+  DEFAULT_KDF,
 } from "@/modules/vault/crypto/kdf";
 import { clearVaultVerified } from "@/core/auth/vault-session";
 
@@ -27,16 +28,32 @@ export const POST = withAuth(async (req, _ctx, user) => {
   const s = await prisma.vaultSettings.findUnique({ where: { userId: user.id } });
   if (!s) return badRequest("Vault not configured");
 
-  // Verify PIN as final proof of ownership
+  // Rebuild the KDF params actually used at setup time
+  const params = {
+    ...DEFAULT_KDF,
+    ...(s.kdfParams ?? {}),
+    algorithm: s.kdfAlgorithm ?? DEFAULT_KDF.algorithm,
+    hash: s.kdfParams?.hash ?? DEFAULT_KDF.hash,
+  };
+
+  // If the vault was created with argon2id, a PBKDF2 check will never match.
+  if (params.algorithm !== "pbkdf2") {
+    return badRequest(
+      `PIN verification not supported for KDF "${params.algorithm}"`
+    );
+  }
+
   const salt = base64ToBytes(s.pinSalt);
   const info = utf8ToBytes("pin-hash");
-  const computed = pbkdf2(
-    sha512,
-    utf8ToBytes(parsed.data.pin),
-    concatBytes(salt, info),
-    { c: s.kdfParams.iterations, dkLen: s.kdfParams.dkLen }
+
+  const computed = await deriveKey(
+    parsed.data.pin,
+    bytesToBase64(concatBytes(salt, info)),
+    "", // purpose already folded into salt above
+    { ...params, saltMode: "raw" }
   );
-  if (bytesToBase64(computed) !== s.pinHash) {
+
+  if (!constantTimeEqual(computed, base64ToBytes(s.pinHash))) {
     return badRequest("Incorrect PIN");
   }
 

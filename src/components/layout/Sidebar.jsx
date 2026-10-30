@@ -38,26 +38,7 @@ export default function Sidebar() {
         <SidebarItem item={SETTINGS_ITEM} pathname={pathname} />
       </div>
 
-      {/* Custom scrollbar styles */}
-      <style jsx global>{`
-        .sidebar-scroll {
-          scrollbar-width: thin;
-          scrollbar-color: hsl(var(--border)) transparent;
-        }
-        .sidebar-scroll::-webkit-scrollbar {
-          width: 6px;
-        }
-        .sidebar-scroll::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .sidebar-scroll::-webkit-scrollbar-thumb {
-          background-color: hsl(var(--border));
-          border-radius: 9999px;
-        }
-        .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-          background-color: hsl(var(--muted-foreground) / 0.4);
-        }
-      `}</style>
+   
     </aside>
   );
 }
