@@ -24,6 +24,8 @@ export const PATCH = withAuth(async (req, ctx, user) => {
 export const DELETE = withAuth(async (_req, ctx, user) => {
   const { id } = await ctx.params;
   const result = await notesQueries.softDelete({ userId: user.id, id });
+  
   if (result.count === 0) return notFound();
   return ok({ success: true });
 });
+

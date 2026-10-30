@@ -16,7 +16,7 @@ import { validatePassword, validatePin } from "@/modules/vault/lib/password-poli
 import { useVault } from "@/modules/vault/context/VaultContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, KeyRound } from "lucide-react";
 
 export default function RecoverPage() {
   const router = useRouter();
@@ -34,8 +34,24 @@ export default function RecoverPage() {
   const [confirmPin, setConfirmPin] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // ── Resend timer ──
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  const startCooldown = (seconds = 90) => {
+    setResendCooldown(seconds);
+    const interval = setInterval(() => {
+      setResendCooldown((s) => {
+        if (s <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+  };
+
   const requestOtp = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     setBusy(true);
     try {
       const res = await fetch("/api/vault/recovery/request", {
@@ -45,13 +61,19 @@ export default function RecoverPage() {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
-      toast.success("Code sent to your email");
+      toast.success("Code sent to your recovery email");
       setStep("otp");
+      startCooldown(90);
     } catch (err) {
       toast.error(err.message);
     } finally {
       setBusy(false);
     }
+  };
+
+  const resendOtp = async () => {
+    if (resendCooldown > 0) return;
+    await requestOtp();
   };
 
   const verifyOtp = async (e) => {
@@ -66,7 +88,7 @@ export default function RecoverPage() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Failed");
       setMasterKeyBase64(json.masterKeyBase64);
-      toast.success("Verified. Set new credentials.");
+      toast.success("Verified. Set your new credentials.");
       setStep("reset");
     } catch (err) {
       toast.error(err.message);
@@ -88,6 +110,8 @@ export default function RecoverPage() {
     setBusy(true);
     try {
       const masterKey = base64ToBytes(masterKeyBase64);
+      // Single salt for both — ensures pinSalt === kdfSalt, avoiding the
+      // drift problem we fixed earlier.
       const newSalt = generateSalt();
 
       const pwKey = await deriveKey(newPassword, newSalt, "password", DEFAULT_KDF);
@@ -123,6 +147,7 @@ export default function RecoverPage() {
       unlock(masterKey);
       toast.success("Credentials reset. Welcome back.");
       router.replace("/vault");
+      router.refresh();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -137,17 +162,24 @@ export default function RecoverPage() {
 
   return (
     <div className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-md flex-col justify-center p-6">
-      <h1 className="text-2xl font-bold">Recover vault</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        {step === "verify" && "Verify your identity to reset credentials."}
-        {step === "otp" && "Enter the 6-digit code sent to your email."}
-        {step === "reset" && "Set a new password and PIN."}
-      </p>
+      <div className="mb-6 flex items-center gap-3">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary to-magenta-500 text-primary-foreground shadow-lg">
+          <KeyRound className="h-5 w-5" />
+        </span>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Recover vault</h1>
+          <p className="text-sm text-muted-foreground">
+            {step === "verify" && "Verify your identity to reset credentials."}
+            {step === "otp" && "Enter the 6-digit code sent to your email."}
+            {step === "reset" && "Set a new password and PIN."}
+          </p>
+        </div>
+      </div>
 
       {step !== "verify" && (
         <button
           onClick={back}
-          className="mt-3 flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="mb-3 flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-3 w-3" />
           Back
@@ -155,7 +187,7 @@ export default function RecoverPage() {
       )}
 
       {step === "verify" && (
-        <form onSubmit={requestOtp} className="mt-6 space-y-3">
+        <form onSubmit={requestOtp} className="space-y-3">
           <div>
             <label className="text-xs font-medium">Recovery email</label>
             <Input
@@ -183,7 +215,7 @@ export default function RecoverPage() {
       )}
 
       {step === "otp" && (
-        <form onSubmit={verifyOtp} className="mt-6 space-y-3">
+        <form onSubmit={verifyOtp} className="space-y-3">
           <Input
             inputMode="numeric"
             maxLength={6}
@@ -193,6 +225,23 @@ export default function RecoverPage() {
             autoFocus
             placeholder="••••••"
           />
+
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              Didn't receive the code?
+            </span>
+            <button
+              type="button"
+              onClick={resendOtp}
+              disabled={resendCooldown > 0 || busy}
+              className="font-medium text-primary transition hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:no-underline"
+            >
+              {resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : "Resend code"}
+            </button>
+          </div>
+
           <Button type="submit" disabled={busy} className="w-full" size="lg">
             {busy ? "Verifying…" : "Verify"}
           </Button>
@@ -200,7 +249,7 @@ export default function RecoverPage() {
       )}
 
       {step === "reset" && (
-        <form onSubmit={saveNewCredentials} className="mt-6 space-y-3">
+        <form onSubmit={saveNewCredentials} className="space-y-3">
           <div>
             <label className="text-xs font-medium">New password</label>
             <Input

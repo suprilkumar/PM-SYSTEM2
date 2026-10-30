@@ -13,6 +13,7 @@ const schema = z.object({
   checkValue: z.string(),
   checkNonce: z.string(),
   masterKeyBase64: z.string(),
+  invalidatePin: z.boolean().default(true),
   reencryptedItems: z.array(
     z.object({
       id: z.string(),
@@ -26,12 +27,10 @@ const schema = z.object({
 
 export const POST = withAuth(async (req, _ctx, user) => {
   const parsed = schema.safeParse(await req.json());
-  if (!parsed.success) {
-    console.error("[change-password-finalize] validation:", parsed.error.flatten());
-    return badRequest("Invalid payload", parsed.error.flatten());
-  }
+  if (!parsed.success) return badRequest("Invalid payload", parsed.error.flatten());
 
-  const { masterKeyBase64, reencryptedItems, ...settingsUpdate } = parsed.data;
+  const { masterKeyBase64, reencryptedItems, invalidatePin, ...settingsUpdate } =
+    parsed.data;
   const serverRecovery = serverWrapMaster(masterKeyBase64);
 
   const ids = reencryptedItems.map((i) => i.id);
@@ -42,6 +41,15 @@ export const POST = withAuth(async (req, _ctx, user) => {
   if (owned.length !== ids.length) {
     return badRequest("Some items don't belong to you");
   }
+
+  const pinResetData = invalidatePin
+    ? {
+        wrappedByPin: "",
+        wrappedByPinNonce: "",
+        pinHash: "",
+        pinSalt: "",
+      }
+    : {};
 
   await prisma.$transaction([
     ...reencryptedItems.map((i) =>
@@ -61,7 +69,7 @@ export const POST = withAuth(async (req, _ctx, user) => {
         ...settingsUpdate,
         serverRecoveryBlob: serverRecovery.ciphertext,
         serverRecoveryNonce: serverRecovery.nonce,
-        // pinHash, pinSalt, wrappedByPin, wrappedByPinNonce stay untouched
+        ...pinResetData,
       },
     }),
     prisma.vaultAudit.create({

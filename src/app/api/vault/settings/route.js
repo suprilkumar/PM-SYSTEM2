@@ -75,9 +75,11 @@ export const GET = withAuth(async (_req, _ctx, user) => {
       recoveryEmail: true,
 
       pinSalt: true,
-      pinHash: true,
+      //pinHash: true,
     },
   });
   if (!s) return ok({ configured: false });
-  return ok({ configured: true, ...s });
+  const hasPin = !!(s.pinSalt && s.wrappedByPin && s.wrappedByPinNonce);
+
+  return ok({ configured: true, hasPin, ...s });
 });

@@ -3,6 +3,7 @@ import { ok, badRequest } from "@/core/api/response";
 import { prisma } from "@/core/db/client";
 import { randomInt, createHash } from "node:crypto";
 import { z } from "zod";
+import { sendEmail, escapeHtml } from "@/core/email/send";
 
 const schema = z.object({
   email: z.string().email(),
@@ -48,14 +49,29 @@ export const POST = withAuth(async (req, _ctx, user) => {
   try {
     const { sendEmail } = await import("@/core/email/send");
     await sendEmail({
-      to: s.recoveryEmail,
-      subject: "Vault recovery code",
-      html: `
-        <p>Your vault recovery code:</p>
-        <h2 style="font-size: 32px; letter-spacing: 8px; font-family: monospace;">${otp}</h2>
-        <p>Valid for 10 minutes. If you didn't request this, ignore this email.</p>
-      `,
-    });
+  to: s.recoveryEmail,
+  subject: "Your vault recovery code",
+  text: `Your vault recovery code is: ${otp}\n\nValid for 10 minutes.`,
+  html: `
+    <div style="font-family:system-ui,-apple-system,Segoe UI,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+      <h2 style="margin:0 0 8px">Vault recovery code</h2>
+      <p style="color:#475569;margin:0 0 20px">
+        Use this code to recover your vault.
+      </p>
+      <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:24px;text-align:center;margin:0 0 20px">
+        <div style="font-family:'SF Mono',Menlo,Consolas,monospace;font-size:32px;letter-spacing:8px;font-weight:600;color:#0f172a">
+          ${otp}
+        </div>
+      </div>
+      <p style="color:#475569;font-size:14px;margin:0 0 8px">
+        Expires in <strong>10 minutes</strong>.
+      </p>
+      <p style="color:#94a3b8;font-size:12px;margin:24px 0 0">
+        If you didn't request recovery, your account may be compromised.
+      </p>
+    </div>
+  `,
+});
   } catch (err) {
     console.error("[recovery-email]", err);
     // Still return OK to not leak whether the email sent
