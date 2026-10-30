@@ -1,7 +1,7 @@
 // src/components/layout/TopNav.jsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as Icons from "lucide-react";
@@ -10,12 +10,17 @@ import { APPS } from "@/core/config/apps";
 import ThemeToggle from "@/components/theme-toggle";
 import { cn } from "@/core/utils/cn";
 
-export default function TopNav({ showApps = true }) {
+export default function TopNav({
+  showApps = true,
+  brandName = "Personal Suite",
+  brandLogo = null, // pass an image URL to replace the "P" mark
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef(null);
 
   const user = session?.user;
   const initial = (user?.name ?? user?.email ?? "U")[0].toUpperCase();
@@ -26,6 +31,23 @@ export default function TopNav({ showApps = true }) {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Close the profile menu on outside click / Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onClick = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKey = (e) => e.key === "Escape" && setMenuOpen(false);
+    document.addEventListener("mousedown", onClick);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
 
   const handleSignOut = async () => {
     setMenuOpen(false);
@@ -72,64 +94,69 @@ export default function TopNav({ showApps = true }) {
               scrolled ? "h-12" : "h-14"
             )}
           >
-            {/* Brand */}
+            {/* ── Brand: logo image slot + custom name ── */}
             <Link
               href="/dashboard"
               className="group flex shrink-0 items-center gap-2 font-semibold"
             >
-              <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-magenta-500 text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
-                P
+              <span className="grid h-8 w-8 place-items-center overflow-hidden rounded-lg bg-gradient-to-br from-primary to-magenta-500 text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
+                {brandLogo ? (
+                  <img
+                    src={brandLogo}
+                    alt={brandName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Icons.Command className="h-4 w-4" />
+                )}
               </span>
               <span
                 className={cn(
-                  "hidden text-[15px] tracking-tight sm:block",
-                  scrolled && "sm:hidden lg:block"
+                  "max-w-[140px] truncate text-[15px] tracking-tight transition-all",
+                  scrolled ? "hidden sm:block" : "hidden sm:block"
                 )}
               >
-                Personal Suite
+                {brandName}
               </span>
             </Link>
 
-            {/* App tabs */}
-            {showApps && (
-              <nav className="mx-auto flex items-center gap-1">
-                {apps.map((app) => {
-                  const Icon = Icons[app.icon] ?? Icons.Circle;
-                  const active =
-                    pathname === app.href ||
-                    pathname.startsWith(app.href + "/");
-                  return (
-                    <Link
-                      key={app.id}
-                      href={app.href}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-all md:px-3 md:py-2",
-                        active
-                          ? "bg-gradient-to-r from-primary to-magenta-500 text-primary-foreground shadow-sm"
-                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                      )}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span
-                        className={cn(
-                          "hidden",
-                          active ? "inline md:inline" : "md:hidden",
-                          "md:ml-1"
-                        )}
-                      >
-                        {app.name}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </nav>
-            )}
+            {/* ── App tabs: icon-only, active expands to show name ── */}
+            {/* ── App tabs: all show label, active is highlighted ── */}
+{showApps && (
+  <nav className="mx-auto flex items-center gap-1">
+    {apps.map((app) => {
+      const Icon = Icons[app.icon] ?? Icons.Circle;
+      const active =
+        pathname === app.href || pathname.startsWith(app.href + "/");
+      return (
+        <Link
+          key={app.id}
+          href={app.href}
+          title={app.name}
+          aria-label={app.name}
+          className={cn(
+            "group relative flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium transition-all duration-200",
+            active
+              ? "bg-gradient-to-r from-primary to-magenta-500 text-primary-foreground shadow-sm shadow-primary/25 md:px-3 md:py-2"
+              : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          )}
+        >
+          <Icon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+          <span className="ml-0.5 hidden whitespace-nowrap sm:inline">
+            {app.name}
+          </span>
+        </Link>
+      );
+    })}
+  </nav>
+)}
 
-            {/* Right cluster */}
+            {/* ── Right cluster ── */}
             <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
               <ThemeToggle />
 
               <button
+                ref={menuRef}
                 onClick={() => setMenuOpen((o) => !o)}
                 className={cn(
                   "grid h-9 w-9 place-items-center rounded-full border border-transparent transition",
@@ -138,6 +165,7 @@ export default function TopNav({ showApps = true }) {
                     : "hover:bg-accent"
                 )}
                 aria-label="Open profile menu"
+                aria-expanded={menuOpen}
               >
                 {user?.image ? (
                   <img
@@ -156,7 +184,7 @@ export default function TopNav({ showApps = true }) {
         </div>
       </header>
 
-      {/* Profile dropdown — floating sheet on mobile, positioned dropdown on desktop */}
+      {/* Profile dropdown */}
       {menuOpen && (
         <>
           {/* Mobile: sheet above bottom */}
@@ -188,7 +216,11 @@ function ProfileSheet({ user, initial, onSignOut, onClose }) {
   const links = [
     { label: "Profile", href: "/settings/profile", icon: Icons.User },
     { label: "Settings", href: "/settings", icon: Icons.Settings },
-    { label: "Notifications", href: "/settings/notifications", icon: Icons.Bell },
+    {
+      label: "Notifications",
+      href: "/settings/notifications",
+      icon: Icons.Bell,
+    },
   ];
 
   return (
@@ -221,7 +253,7 @@ function ProfileSheet({ user, initial, onSignOut, onClose }) {
             key={l.href}
             href={l.href}
             onClick={onClose}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition active:bg-accent hover:bg-accent"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition hover:bg-accent active:bg-accent"
           >
             <l.icon className="h-4 w-4 text-muted-foreground" />
             {l.label}
