@@ -1,3 +1,4 @@
+// src/modules/vault/context/VaultContext.jsx
 "use client";
 
 import {
@@ -8,23 +9,28 @@ import {
   useCallback,
   useEffect,
 } from "react";
+import { bytesToBase64, base64ToBytes } from "@/modules/vault/crypto/kdf";
 
 const VaultContext = createContext(null);
 
-const IDLE_MS = 5 * 60 * 1000;
+const IDLE_MS = 15 * 60 * 1000;
 const HIDDEN_LOCK_MS = 60 * 1000;
 const FLAG = "vault:unlocked";
+const MK_CACHE = "vault:mk";
 
 export function VaultProvider({ children }) {
   const masterKeyRef = useRef(null);
   const [isUnlocked, setIsUnlocked] = useState(false);
   const idleTimerRef = useRef(null);
+  const [expiresAt, setExpiresAt] = useState(null);
 
   const lock = useCallback(async (reason = "manual") => {
     masterKeyRef.current = null;
     setIsUnlocked(false);
+    setExpiresAt(null);
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(FLAG);
+      sessionStorage.removeItem(MK_CACHE);
     }
     try {
       await fetch("/api/vault/lock", { method: "POST" });
@@ -38,6 +44,7 @@ export function VaultProvider({ children }) {
   const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     idleTimerRef.current = setTimeout(() => lock("idle"), IDLE_MS);
+    setExpiresAt(Date.now() + IDLE_MS);
   }, [lock]);
 
   const unlock = useCallback(
@@ -45,8 +52,16 @@ export function VaultProvider({ children }) {
       masterKeyRef.current = masterKey;
       setIsUnlocked(true);
       resetIdleTimer();
+      setExpiresAt(Date.now() + IDLE_MS);
       if (typeof window !== "undefined") {
-        sessionStorage.setItem(FLAG, "1");
+        // Cache the master key so a page refresh doesn't force re-derive
+        // (sessionStorage — cleared when the tab closes).
+        try {
+          sessionStorage.setItem(MK_CACHE, bytesToBase64(masterKey));
+          sessionStorage.setItem(FLAG, "1");
+        } catch {
+          // Quota errors are non-fatal
+        }
         window.dispatchEvent(new CustomEvent("vault:unlocked"));
         window.dispatchEvent(new Event("storage"));
       }
@@ -56,7 +71,7 @@ export function VaultProvider({ children }) {
 
   const getMasterKey = useCallback(() => masterKeyRef.current, []);
 
-  // Reset idle timer on activity
+  // Reset idle timer on user activity
   useEffect(() => {
     if (!isUnlocked) return;
     const events = ["mousedown", "keydown", "touchstart", "scroll"];
@@ -68,7 +83,7 @@ export function VaultProvider({ children }) {
     };
   }, [isUnlocked, resetIdleTimer]);
 
-  // Lock on hidden too long
+  // Lock when tab is hidden too long
   const hiddenAtRef = useRef(null);
   useEffect(() => {
     if (!isUnlocked) return;
@@ -85,20 +100,36 @@ export function VaultProvider({ children }) {
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [isUnlocked, lock]);
 
-  // On mount, restore isUnlocked from sessionStorage
+  // On mount, restore master key from sessionStorage (fresh page load
+  // in the same tab) OR restore the "unlocked" flag so the sidebar
+  // stays expanded.
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    const cached = sessionStorage.getItem(MK_CACHE);
+    if (cached) {
+      try {
+        masterKeyRef.current = base64ToBytes(cached);
+        setIsUnlocked(true);
+        resetIdleTimer();
+        setExpiresAt(Date.now() + IDLE_MS);
+        return;
+      } catch {
+        sessionStorage.removeItem(MK_CACHE);
+      }
+    }
+
     if (sessionStorage.getItem(FLAG) === "1") {
-      // We don't have the key anymore — but the UI state says unlocked.
-      // If the user navigates to a vault page, the key will be missing
-      // and they'll get redirected to unlock. This just keeps the
-      // sidebar expanded.
+      // Flag present but no key — sidebar stays expanded; vault pages
+      // will redirect to /unlock if they try to fetch items.
       setIsUnlocked(true);
     }
-  }, []);
+  }, [resetIdleTimer]);
 
   return (
-    <VaultContext.Provider value={{ isUnlocked, unlock, lock, getMasterKey }}>
+    <VaultContext.Provider
+      value={{ isUnlocked, unlock, lock, getMasterKey, expiresAt, IDLE_MS }}
+    >
       {children}
     </VaultContext.Provider>
   );

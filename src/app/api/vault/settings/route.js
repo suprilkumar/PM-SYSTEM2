@@ -34,9 +34,9 @@ export const POST = withAuth(async (req, _ctx, user) => {
   if (existing) return badRequest("Vault already set up");
 
   // Verify the recovery email matches the user's actual signed-in email
-  if (parsed.data.recoveryEmail.toLowerCase() !== user.email.toLowerCase()) {
-    return badRequest("Recovery email must match your signed-in email");
-  }
+//   if (parsed.data.recoveryEmail.toLowerCase() !== user.email.toLowerCase()) {
+//     return badRequest("Recovery email must match your signed-in email");
+//   }
 
   const { masterKeyBase64, ...rest } = parsed.data;
   const serverRecovery = serverWrapMaster(masterKeyBase64);
@@ -73,6 +73,9 @@ export const GET = withAuth(async (_req, _ctx, user) => {
       checkValue: true,
       checkNonce: true,
       recoveryEmail: true,
+
+      pinSalt: true,
+      pinHash: true,
     },
   });
   if (!s) return ok({ configured: false });

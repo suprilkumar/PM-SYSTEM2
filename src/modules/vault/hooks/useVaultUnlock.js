@@ -1,3 +1,4 @@
+// src/modules/vault/hooks/useVaultUnlock.js
 "use client";
 
 import { useCallback } from "react";
@@ -14,19 +15,29 @@ export function useVaultUnlock() {
   const unlockWithPin = useCallback(
     async ({ pin, settings }) => {
       console.log("[unlock] PIN path");
-      console.log("[unlock] kdfSalt:", settings.kdfSalt?.slice(0, 16));
-      console.log("[unlock] wrappedByPin present:", !!settings.wrappedByPin);
+      console.log("[unlock] kdfSalt:", settings.kdfSalt?.slice(0, 12));
+      console.log("[unlock] pinSalt:", settings.pinSalt?.slice(0, 12));
 
-      const pinKey = await deriveKey(pin, settings.kdfSalt, "pin", settings.kdfParams);
-      console.log("[unlock] pinKey:", Array.from(pinKey.slice(0, 8)));
+      // PIN key is derived from pinSalt (NOT kdfSalt).
+      // This matches what was used to wrap the master key.
+      const saltForPin = settings.pinSalt ?? settings.kdfSalt;
+
+      const pinKey = await deriveKey(
+        pin,
+        saltForPin,
+        "pin",
+        settings.kdfParams
+      );
 
       let masterKey;
       try {
         masterKey = unwrapMasterKey(
-          { ciphertext: settings.wrappedByPin, nonce: settings.wrappedByPinNonce },
+          {
+            ciphertext: settings.wrappedByPin,
+            nonce: settings.wrappedByPinNonce,
+          },
           pinKey
         );
-        console.log("[unlock] unwrapped OK");
       } catch (err) {
         console.error("[unlock] unwrap FAILED:", err.message);
         throw new Error("Invalid PIN");
@@ -36,7 +47,6 @@ export function useVaultUnlock() {
         ciphertext: settings.checkValue,
         nonce: settings.checkNonce,
       });
-      console.log("[unlock] check value:", ok);
       if (!ok) throw new Error("Invalid PIN");
 
       unlock(masterKey);
@@ -47,18 +57,12 @@ export function useVaultUnlock() {
 
   const unlockWithPassword = useCallback(
     async ({ password, settings }) => {
-      console.log("[unlock] PASSWORD path");
-      console.log("[unlock] kdfSalt:", settings.kdfSalt?.slice(0, 16));
-      console.log("[unlock] wrappedByPassword present:", !!settings.wrappedByPassword);
-      console.log("[unlock] password length:", password.length);
-
       const pwKey = await deriveKey(
         password,
         settings.kdfSalt,
         "password",
         settings.kdfParams
       );
-      console.log("[unlock] pwKey:", Array.from(pwKey.slice(0, 8)));
 
       let masterKey;
       try {
@@ -69,11 +73,8 @@ export function useVaultUnlock() {
           },
           pwKey
         );
-        console.log("[unlock] unwrapped OK");
       } catch (err) {
         console.error("[unlock] unwrap FAILED:", err.message);
-        console.error("[unlock] nonce length:", settings.wrappedByPasswordNonce?.length);
-        console.error("[unlock] ciphertext length:", settings.wrappedByPassword?.length);
         throw new Error("Incorrect password");
       }
 
@@ -81,7 +82,6 @@ export function useVaultUnlock() {
         ciphertext: settings.checkValue,
         nonce: settings.checkNonce,
       });
-      console.log("[unlock] check value:", ok);
       if (!ok) throw new Error("Incorrect password");
 
       unlock(masterKey);

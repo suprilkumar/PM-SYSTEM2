@@ -2,7 +2,12 @@
 import { hkdf } from "@noble/hashes/hkdf.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { encryptObject, decryptObject } from "./cipher";
-import { utf8ToBytes, randomBytes, bytesToBase64, base64ToBytes } from "./kdf";
+import {
+  utf8ToBytes,
+  randomBytes,
+  bytesToBase64,
+  base64ToBytes,
+} from "./kdf";
 
 const PURPOSE_ITEM = "vault-item-v1";
 

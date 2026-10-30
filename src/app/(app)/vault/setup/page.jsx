@@ -12,6 +12,7 @@ import {
   randomBytes,
   bytesToBase64,
   DEFAULT_KDF,
+  base64ToBytes,
 } from "@/modules/vault/crypto";
 import {
   validatePassword,
@@ -218,7 +219,7 @@ console.log("[setup] wrappedByPasswordNonce:", wrappedPw.nonce.slice(0, 20) + ".
               </p>
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium">Your sign-in email</label>
+                  <label className="text-xs font-medium">Recovery email</label>
                   <Input
                     type="email"
                     value={email}
@@ -226,6 +227,9 @@ console.log("[setup] wrappedByPasswordNonce:", wrappedPw.nonce.slice(0, 20) + ".
                     placeholder="you@example.com"
                     className="mt-1"
                   />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Can be any email. This is where recovery OTPs are sent if you forget your password.
+                    </p>
                 </div>
                 <div>
                   <label className="text-xs font-medium">Date of birth</label>

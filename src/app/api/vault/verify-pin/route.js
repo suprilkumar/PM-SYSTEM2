@@ -1,17 +1,11 @@
 // src/app/api/vault/verify-pin/route.js
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { withAuth } from "@/core/api/handler";
 import { badRequest, unauthorized } from "@/core/api/response";
 import { prisma } from "@/core/db/client";
 import { z } from "zod";
-import { pbkdf2 } from "@noble/hashes/pbkdf2.js";
-import { sha256, sha512 } from "@noble/hashes/sha2.js";
-import {
-  base64ToBytes,
-  bytesToBase64,
-  utf8ToBytes,
-  concatBytes,
-} from "@/modules/vault/crypto/kdf";
+import { base64ToBytes, bytesToBase64, concatBytes } from "@/modules/vault/crypto/kdf";
 import { buildVaultCookie } from "@/core/auth/vault-session";
 
 const MAX_ATTEMPTS = 5;
@@ -20,33 +14,39 @@ const LOCK_MINUTES = 15;
 const schema = z.object({ pin: z.string().length(6) });
 
 /**
- * Recompute PIN hash EXACTLY as setup did.
- *
- * Setup does:
- *   deriveKey(pin, salt, "pin-hash", kdfParams)
- * which internally:
- *   pbkdf2(hashFn, pin, concat(salt, "pin-hash"), iterations, dkLen)
+ * Node-native PBKDF2 (~200ms at 600k iterations vs ~22s in pure JS).
+ * Must produce the exact same bytes as @noble/hashes/pbkdf2.
  */
-function derivePinHash(pin, saltB64, kdfParams) {
-  const salt = base64ToBytes(saltB64);
-  const info = utf8ToBytes("pin-hash");
-  const password = utf8ToBytes(pin);
-
-  if (kdfParams.algorithm === "argon2id") {
-    throw new Error(
-      "PIN was set up with argon2id — this app requires pbkdf2 for server-side PIN verification"
-    );
-  }
-
-  const hashFn = kdfParams.hash === "sha256" ? sha256 : sha512;
-
-  return pbkdf2(hashFn, password, concatBytes(salt, info), {
-    c: kdfParams.iterations,
-    dkLen: kdfParams.dkLen,
+function pbkdf2Native(password, salt, iterations, dkLen, hash) {
+  return new Promise((resolve, reject) => {
+    crypto.pbkdf2(password, salt, iterations, dkLen, hash, (err, key) => {
+      if (err) reject(err);
+      else resolve(new Uint8Array(key));
+    });
   });
 }
 
+async function derivePinHash(pin, saltB64, kdfParams) {
+  const salt = base64ToBytes(saltB64);
+  const info = new TextEncoder().encode("pin-hash");
+
+  // Must match exactly what setup produced:
+  //   concatBytes(salt, info) as the effective salt
+  const effectiveSalt = concatBytes(salt, info);
+  const password = new TextEncoder().encode(pin);
+  const hash = kdfParams.hash === "sha256" ? "sha256" : "sha512";
+
+  return pbkdf2Native(
+    password,
+    effectiveSalt,
+    kdfParams.iterations,
+    kdfParams.dkLen,
+    hash
+  );
+}
+
 export const POST = withAuth(async (req, _ctx, user) => {
+  const start = Date.now();
   console.log("[verify-pin] START for", user.id);
 
   const parsed = schema.safeParse(await req.json());
@@ -61,9 +61,14 @@ export const POST = withAuth(async (req, _ctx, user) => {
 
   let computedB64;
   try {
-    computedB64 = bytesToBase64(
-      derivePinHash(parsed.data.pin, s.pinSalt, s.kdfParams)
+    const t0 = Date.now();
+    const computed = await derivePinHash(
+      parsed.data.pin,
+      s.pinSalt,
+      s.kdfParams
     );
+    console.log("[verify-pin] derive took", Date.now() - t0, "ms");
+    computedB64 = bytesToBase64(computed);
   } catch (err) {
     console.error("[verify-pin] derivation error:", err.message);
     return badRequest(err.message);
@@ -104,9 +109,10 @@ export const POST = withAuth(async (req, _ctx, user) => {
     });
   } catch {}
 
-  console.log("[verify-pin] OK — issuing cookie");
   const cookie = buildVaultCookie(user.id);
   const res = NextResponse.json({ verified: true }, { status: 200 });
   res.cookies.set(cookie.name, cookie.value, cookie.options);
+
+  console.log("[verify-pin] total", Date.now() - start, "ms");
   return res;
 });

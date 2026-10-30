@@ -87,204 +87,175 @@ export default function VaultItemEditor({ initial }) {
   const filledCount = fields.filter((f) => f.value).length;
   const requiredCount = fields.filter((f) => f.required).length;
 
-  return (
-    <div className="mx-auto w-full max-w-[1300px] px-4 py-6 md:px-6 md:py-8">
-      {/* ── Header ── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <ServiceLogo templateKey={kind} size={48} />
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold tracking-tight md:text-2xl">
-              {isEdit ? "Edit item" : "New item"}
-            </h1>
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <CategoryChip categoryKey={template.category} />
-              <span className="text-xs text-muted-foreground">
-                {template.label}
-              </span>
-            </div>
+return (
+  <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
+    {/* Header */}
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <ServiceLogo templateKey={kind} size={48} />
+        <div className="min-w-0">
+          <h1 className="text-xl font-bold tracking-tight md:text-2xl">
+            {isEdit ? "Edit item" : "New item"}
+          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <CategoryChip categoryKey={template.category} />
+            <span className="text-xs text-muted-foreground">{template.label}</span>
           </div>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.back()}>
-            Cancel
-          </Button>
-          <Button onClick={save} disabled={saving}>
-            {saving ? "Saving…" : isEdit ? "Update item" : "Save item"}
-          </Button>
         </div>
       </div>
-
-      {/* ── Two-column layout ── */}
-      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_320px]">
-        {/* ══ Main column ══ */}
-        <div className="min-w-0 space-y-5">
-          {/* Template — flat, not nested */}
-          {!isEdit && (
-            <div className="rounded-2xl border border-border/70 bg-card">
-              <button
-                onClick={() => setShowTemplatePicker((s) => !s)}
-                className="flex w-full items-center gap-3 p-4 text-left"
-              >
-                <ServiceLogo templateKey={kind} size={40} />
-                <div className="min-w-0 flex-1">
-                  <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Template
-                  </div>
-                  <div className="truncate text-sm font-medium">
-                    {template.label}
-                  </div>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                    showTemplatePicker && "rotate-180"
-                  )}
-                />
-              </button>
-
-              {showTemplatePicker && (
-                <div className="border-t border-border/60 p-3">
-                  {/* TemplatePicker without its own outer card border */}
-                  <TemplatePicker
-                    value={kind}
-                    onChange={pickTemplate}
-                    onClose={() => setShowTemplatePicker(false)}
-                    bare
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Name */}
-          <div className="rounded-2xl border border-border/70 bg-card p-4">
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Name
-            </label>
-            <Input
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder={`e.g. ${template.label} — personal`}
-              className="mt-2 h-11 text-base font-medium"
-              autoFocus={isEdit}
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              A short name you'll recognize. You can add multiple accounts of
-              the same type.
-            </p>
-          </div>
-
-          {/* Fields */}
-          <div className="rounded-2xl border border-border/70 bg-card p-4">
-            <div className="mb-3 flex items-baseline justify-between gap-2">
-              <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fields
-                </label>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">
-                  {filledCount} filled · {requiredCount} required
-                </p>
-              </div>
-              <span className="text-[10px] text-muted-foreground">
-                Drag to reorder
-              </span>
-            </div>
-            <FieldEditor fields={fields} onChange={setFields} />
-          </div>
-
-          {/* Tags */}
-          <div className="rounded-2xl border border-border/70 bg-card p-4">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <Tag className="h-3 w-3" />
-              Tags
-            </label>
-            <Input
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="personal, work, important"
-              className="mt-2"
-            />
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Comma-separated. Used for filtering and search.
-            </p>
-          </div>
-
-          {/* Notes */}
-          <div className="rounded-2xl border border-border/70 bg-card p-4">
-            <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <FileText className="h-3 w-3" />
-              Notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Recovery codes, security questions, any context…"
-              rows={3}
-              className="mt-2 w-full resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-            />
-          </div>
-        </div>
-
-        {/* ══ Right sidebar ══ */}
-        <aside className="space-y-3 lg:sticky lg:top-20">
-          <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-magenta-500/5 p-4">
-            <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-              <AlertCircle className="h-4 w-4" />
-              Security note
-            </div>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Everything here is encrypted on this device before being sent to
-              the server. We cannot read your passwords, even if compelled.
-            </p>
-            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              You can save multiple accounts of the same type — just give each a
-              distinct name.
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-border/70 bg-card p-4">
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              What you're saving
-            </div>
-            <div className="mt-2 space-y-1.5">
-              {fields.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Add fields to see the summary.
-                </p>
-              ) : (
-                fields.slice(0, 10).map((f) => (
-                  <div
-                    key={f.key}
-                    className="flex items-center justify-between gap-2 text-xs"
-                  >
-                    <span className="truncate text-muted-foreground">
-                      {f.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                        f.value
-                          ? "bg-emerald-500/15 text-emerald-600"
-                          : f.required
-                          ? "bg-red-500/15 text-red-600"
-                          : "bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {f.value ? "set" : f.required ? "required" : "optional"}
-                    </span>
-                  </div>
-                ))
-              )}
-              {fields.length > 10 && (
-                <p className="pt-1 text-[10px] text-muted-foreground">
-                  +{fields.length - 10} more
-                </p>
-              )}
-            </div>
-          </div>
-        </aside>
+      <div className="flex gap-2">
+        <Button variant="outline" onClick={() => router.back()}>
+          Cancel
+        </Button>
+        <Button onClick={save} disabled={saving}>
+          {saving ? "Saving…" : isEdit ? "Update item" : "Save item"}
+        </Button>
       </div>
     </div>
-  );
+
+    {/* Template picker (collapsible, full width) */}
+    {!isEdit && (
+      <div className="mt-6 rounded-2xl border border-border/70 bg-card">
+        <button
+          onClick={() => setShowTemplatePicker((s) => !s)}
+          className="flex w-full items-center gap-3 p-4 text-left"
+        >
+          <ServiceLogo templateKey={kind} size={40} />
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Template
+            </div>
+            <div className="truncate text-sm font-medium">{template.label}</div>
+          </div>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+              showTemplatePicker && "rotate-180"
+            )}
+          />
+        </button>
+        {showTemplatePicker && (
+          <div className="border-t border-border/60 p-3">
+            <TemplatePicker
+              value={kind}
+              onChange={pickTemplate}
+              onClose={() => setShowTemplatePicker(false)}
+              bare
+            />
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Two-column form */}
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+      {/* Left — fields */}
+      <div className="min-w-0 space-y-5">
+        {/* Name */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4">
+          <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Name
+          </label>
+          <Input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder={`e.g. ${template.label} — personal`}
+            className="mt-2 h-11 text-base font-medium"
+            autoFocus={isEdit}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            A short name you'll recognize.
+          </p>
+        </div>
+
+        {/* Fields */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4">
+          <div className="mb-3 flex items-baseline justify-between gap-2">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Fields
+              </label>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {filledCount} filled · {requiredCount} required
+              </p>
+            </div>
+          </div>
+          <FieldEditor fields={fields} onChange={setFields} />
+        </div>
+      </div>
+
+      {/* Right — metadata */}
+      <aside className="min-w-0 space-y-4 lg:sticky lg:top-20">
+        {/* Tags */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4">
+          <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Tag className="h-3 w-3" />
+            Tags
+          </label>
+          <Input
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+            placeholder="personal, work, important"
+            className="mt-2"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Comma-separated
+          </p>
+        </div>
+
+        {/* Notes */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4">
+          <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <FileText className="h-3 w-3" />
+            Notes
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Recovery codes, security questions, any context…"
+            rows={4}
+            className="mt-2 w-full resize-y rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </div>
+
+        {/* Progress */}
+        <div className="rounded-2xl border border-border/70 bg-card p-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Progress
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-magenta-500 transition-all"
+                style={{
+                  width: `${Math.round((filledCount / Math.max(1, fields.length)) * 100)}%`,
+                }}
+              />
+            </div>
+            <span className="text-[10px] tabular-nums text-muted-foreground">
+              {filledCount}/{fields.length}
+            </span>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            {requiredCount > fields.filter((f) => f.required && f.value).length
+              ? `${requiredCount - fields.filter((f) => f.required && f.value).length} required field(s) empty`
+              : "All required fields set"}
+          </p>
+        </div>
+
+        {/* Security note */}
+        <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/5 to-magenta-500/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <AlertCircle className="h-4 w-4" />
+            Encrypted
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+            Everything is encrypted on this device before being sent to the
+            server. We cannot read your data.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+);
 }

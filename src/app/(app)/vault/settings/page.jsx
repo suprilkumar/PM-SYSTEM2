@@ -4,34 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { toast } from "sonner";
-import {
-  KeyRound,
-  ShieldCheck,
-  AlertTriangle,
-  Lock,
-  Mail,
-  Calendar,
-} from "lucide-react";
+import { KeyRound, ShieldCheck, AlertTriangle, Lock, Mail, Calendar } from "lucide-react";
 import { useVault } from "@/modules/vault/context/VaultContext";
 import { useVaultItems } from "@/modules/vault/hooks/useVaultItems";
-import {
-  deriveKey,
-  deriveItemKey,
-  wrapMasterKey,
-  unwrapMasterKey,
-  verifyCheckValue,
-  makeCheckValue,
-  encryptObject,
-  encryptString,
-  generateSalt,
-  bytesToBase64,
-  DEFAULT_KDF,
-} from "@/modules/vault/crypto";
-import {
-  validatePassword,
-  validatePin,
-  validateDob,
-} from "@/modules/vault/lib/password-policy";
+import { deriveKey, deriveItemKey, wrapMasterKey, unwrapMasterKey, verifyCheckValue, makeCheckValue, encryptObject,
+  encryptString, generateSalt, bytesToBase64, DEFAULT_KDF } from "@/modules/vault/crypto";
+import { validatePassword, validatePin, validateDob} from "@/modules/vault/lib/password-policy";
 import PageHeader from "@/components/layout/PageHeader";
 import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -68,73 +46,94 @@ export default function VaultSettingsPage() {
 
   /* ═════════ Change PIN ═════════ */
 
-  const changePin = async (e) => {
-    e.preventDefault();
-    const pinCheck = validatePin(newPin);
-    if (!pinCheck.ok) return toast.error(pinCheck.message);
-    if (newPin !== confirmPin) return toast.error("PINs don't match");
-    if (!currentPwForPin) return toast.error("Enter your master password");
+const changePin = async (e) => {
+  e.preventDefault();
+  const pinCheck = validatePin(newPin);
+  if (!pinCheck.ok) return toast.error(pinCheck.message);
+  if (newPin !== confirmPin) return toast.error("PINs don't match");
+  if (!currentPwForPin) return toast.error("Enter your master password");
 
-    const masterKey = getMasterKey();
-    if (!masterKey) return toast.error("Vault locked");
+  const masterKey = getMasterKey();
+  if (!masterKey) return toast.error("Vault locked");
 
-    setPinBusy(true);
+  setPinBusy(true);
+  try {
+    // 1. Verify the entered password
+    const pwKey = await deriveKey(
+      currentPwForPin,
+      settings.kdfSalt,
+      "password",
+      settings.kdfParams
+    );
+    let unwrapped;
     try {
-      // Verify the entered password by attempting to derive the master key
-      const pwKey = await deriveKey(
-        currentPwForPin,
-        settings.kdfSalt,
-        "password",
-        settings.kdfParams
+      unwrapped = unwrapMasterKey(
+        {
+          ciphertext: settings.wrappedByPassword,
+          nonce: settings.wrappedByPasswordNonce,
+        },
+        pwKey
       );
-      let unwrapped;
-      try {
-        unwrapped = unwrapMasterKey(
-          {
-            ciphertext: settings.wrappedByPassword,
-            nonce: settings.wrappedByPasswordNonce,
-          },
-          pwKey
-        );
-      } catch {
-        throw new Error("Incorrect password");
-      }
-      const matches = verifyCheckValue(unwrapped, {
-        ciphertext: settings.checkValue,
-        nonce: settings.checkNonce,
-      });
-      if (!matches) throw new Error("Incorrect password");
-
-      // Same key — now wrap it with the new PIN
-      const newSalt = generateSalt();
-      const pinKey = await deriveKey(newPin, newSalt, "pin", DEFAULT_KDF);
-      const wrappedPin = wrapMasterKey(unwrapped, pinKey);
-      const pinHash = await deriveKey(newPin, newSalt, "pin-hash", DEFAULT_KDF);
-
-      const res = await fetch("/api/vault/change-pin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pinHash: bytesToBase64(pinHash),
-          pinSalt: newSalt,
-          wrappedByPin: wrappedPin.ciphertext,
-          wrappedByPinNonce: wrappedPin.nonce,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Failed");
-
-      toast.success("PIN updated");
-      setCurrentPwForPin("");
-      setNewPin("");
-      setConfirmPin("");
-      await reloadSettings();
-    } catch (err) {
-      toast.error(err.message);
-    } finally {
-      setPinBusy(false);
+    } catch {
+      throw new Error("Incorrect password");
     }
-  };
+    const matches = verifyCheckValue(unwrapped, {
+      ciphertext: settings.checkValue,
+      nonce: settings.checkNonce,
+    });
+    if (!matches) throw new Error("Incorrect password");
+
+    // 2. Reuse the EXISTING pinSalt — never regenerate.
+    //    The salt is per-vault, not per-PIN.
+    const pinSalt = settings.pinSalt;
+
+    const pinKey = await deriveKey(newPin, pinSalt, "pin", DEFAULT_KDF);
+    const wrappedPin = wrapMasterKey(unwrapped, pinKey);
+    const pinHash = await deriveKey(newPin, pinSalt, "pin-hash", DEFAULT_KDF);
+
+    const pinHashB64 = bytesToBase64(pinHash);
+
+if (!pinHashB64 || pinHashB64.length < 20) {
+  console.error("[changePin] pinHash is bad:", pinHashB64);
+  throw new Error("Failed to compute PIN hash");
+}
+if (!pinSalt || pinSalt.length < 10) {
+  console.error("[changePin] pinSalt is bad:", pinSalt);
+  throw new Error("Missing PIN salt — reload the page");
+}
+if (!wrappedPin?.ciphertext) {
+  console.error("[changePin] wrappedPin is bad:", wrappedPin);
+  throw new Error("Failed to wrap master key");
+}
+if (!wrappedPin?.nonce) {
+  throw new Error("Failed to generate wrap nonce");
+}
+
+    // 3. Persist — pinSalt is passed unchanged
+    const res = await fetch("/api/vault/change-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        pinHash: bytesToBase64(pinHash),
+        pinSalt,
+        wrappedByPin: wrappedPin.ciphertext,
+        wrappedByPinNonce: wrappedPin.nonce,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error ?? "Failed");
+
+    toast.success("PIN updated");
+    setCurrentPwForPin("");
+    setNewPin("");
+    setConfirmPin("");
+    await reloadSettings();
+  } catch (err) {
+    toast.error(err.message);
+  } finally {
+    setPinBusy(false);
+  }
+};
 
   /* ═════════ Change password ═════════ */
 

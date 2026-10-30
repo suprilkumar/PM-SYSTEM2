@@ -12,10 +12,6 @@ const schema = z.object({
   wrappedByPasswordNonce: z.string(),
   checkValue: z.string(),
   checkNonce: z.string(),
-  pinHash: z.string(),
-  pinSalt: z.string(),
-  wrappedByPin: z.string(),
-  wrappedByPinNonce: z.string(),
   masterKeyBase64: z.string(),
   reencryptedItems: z.array(
     z.object({
@@ -30,7 +26,10 @@ const schema = z.object({
 
 export const POST = withAuth(async (req, _ctx, user) => {
   const parsed = schema.safeParse(await req.json());
-  if (!parsed.success) return badRequest("Invalid payload");
+  if (!parsed.success) {
+    console.error("[change-password-finalize] validation:", parsed.error.flatten());
+    return badRequest("Invalid payload", parsed.error.flatten());
+  }
 
   const { masterKeyBase64, reencryptedItems, ...settingsUpdate } = parsed.data;
   const serverRecovery = serverWrapMaster(masterKeyBase64);
@@ -62,6 +61,7 @@ export const POST = withAuth(async (req, _ctx, user) => {
         ...settingsUpdate,
         serverRecoveryBlob: serverRecovery.ciphertext,
         serverRecoveryNonce: serverRecovery.nonce,
+        // pinHash, pinSalt, wrappedByPin, wrappedByPinNonce stay untouched
       },
     }),
     prisma.vaultAudit.create({

@@ -4,9 +4,9 @@ import { sha256, sha512 } from "@noble/hashes/sha2.js";
 
 export const DEFAULT_KDF = {
   algorithm: "pbkdf2",
-  iterations: 600_000,
+  iterations: 210_000,
   dkLen: 32,
-  hash: "sha512", // ← explicitly track which hash function
+  hash: "sha512",
 };
 
 export const ARGON2_PARAMS = {
@@ -17,15 +17,6 @@ export const ARGON2_PARAMS = {
   dkLen: 32,
 };
 
-/**
- * Derive a 32-byte key from a password + salt + purpose.
- *
- * The `purpose` string is concatenated with the salt so that the same
- * password used for different purposes (e.g. "master" vs "pin") produces
- * different keys.
- *
- * Supported hashes: "sha256" | "sha512"
- */
 export async function deriveKey(
   password,
   saltB64,
@@ -53,8 +44,6 @@ export async function deriveKey(
   });
 }
 
-/* ── helpers ── */
-
 export function utf8ToBytes(s) {
   return new TextEncoder().encode(s);
 }
@@ -63,12 +52,43 @@ export function bytesToUtf8(b) {
   return new TextDecoder().decode(b);
 }
 
+// export function base64ToBytes(b64) {
+//   const bin = atob(b64);
+//   const out = new Uint8Array(bin.length);
+//   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+//   return out;
+// }
+
 export function base64ToBytes(b64) {
-  const bin = atob(b64);
+  if (!b64) return new Uint8Array(0);
+
+  // Normalize base64url → base64
+  let s = String(b64).replace(/-/g, "+").replace(/_/g, "/");
+
+  // Pad to multiple of 4
+  const pad = (4 - (s.length % 4)) % 4;
+  if (pad) s += "=".repeat(pad);
+
+  // Decode
+  let bin;
+  try {
+    bin = atob(s);
+  } catch (err) {
+    throw new Error(
+      `base64ToBytes: invalid base64 input (${err.message}). Input starts with: ${String(b64).slice(0, 12)}…`
+    );
+  }
+
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+
+// export function bytesToBase64(bytes) {
+//   let bin = "";
+//   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+//   return btoa(bin);
+// }
 
 export function bytesToBase64(bytes) {
   let bin = "";
